@@ -1,0 +1,2 @@
+Completed,Crowdsourcing_Code,Crowdsourcing_SubjId,End_Time,End_Time_Local,Exp_Subject_Id,Group_Name,Group_Nr,Rec_Session_Id,Screen_Refresh_Rate,Session_Name,Session_Nr,Session_Token,Start_Time,Start_Time_Local,Subject_Code,Subject_Nr,Subject_Nr_Per_Group,TimeMeasure_Mean,TimeMeasure_Std
+true,db174108d0d5dfbf9821d195dbfb8c6f,606c6e9f7e86c0264ab3d7d8,2024-07-18T12:08:13.216Z,2024-07-18 14:08:13+02,953002,group_1,1,1113034,59.880239520962,session_1,1,a8dc19ae363cac3e867d33d44f137a82,2024-07-18T11:40:53.721Z,2024-07-18 13:40:49+02,"",14,14,3.0799999999999983,3.8844542236181114

@@ -1,0 +1,717 @@
+---
+title: "Inter-Annotator Agreement"
+format:
+  html:
+    toc: true
+knitr:
+  opts_chunk: 
+    collapse: false
+editor: visual
+---
+
+## Packages
+
+```{r}
+#| output: false
+#| message: false
+
+library(tidyverse)
+library(readxl)
+library(tidycomm)
+library(irr)
+library(psy)
+library(writexl)
+library(ggbeeswarm)
+
+```
+
+## List files
+
+```{r}
+#| output: false
+#| message: false
+
+f_stefan <- list.files("../Coders/Sheets for Stefan, Sveta and Michael/", pattern = "^SH", full.names = T)
+f_sveta <- list.files("../Coders/Sheets for Stefan, Sveta and Michael/", pattern = "^SK", full.names = T)
+f_michael <- list.files("../Coders/Sheets for Stefan, Sveta and Michael/", pattern = "^MP", full.names = T)
+f_f <- list.files("../Coders/Sheets for coders/", pattern = "^F", full.names = T) # coder F
+
+
+# dataframe with coder (= crowdsourced participant), annotator (= person who rated the crowdsourced participant's answer), task number. Each spreadsheet contains data from multiple coders, but the rating of the answers was conducted by one individual.
+files <- tibble ( file = c(f_stefan, f_sveta, f_michael, f_f))
+files <- separate_wider_delim(files, file, delim = "TASK", names = c("file_rest", "task"), cols_remove = F)
+files <- separate_wider_delim(files, task, "_", names = c("task", "coders"), too_many = "merge")
+files$annotator <- gsub(".*//", "", files$file_rest)
+files <- select(files, -file_rest)
+
+# When exporting from Googledocs, semicolons in the file name get lost. As they are in some cases vital for reconstructing the coder IDs from the file name, we add a column with the original filenames.
+orig_fn1 <- readLines("helpers/filenames_stefan_sveta_michael.txt")
+orig_fn2 <- readLines("helpers/filenames_coders.txt")
+
+orig_fn <- tibble(orig_file = c(orig_fn1, orig_fn2))
+orig_fn <- separate_wider_delim(orig_fn, orig_file, delim = "TASK", names = c("file_rest", "task"), cols_remove = F)
+orig_fn <- separate_wider_delim(orig_fn, task, ":", names = c("task", "coders"), too_many = "merge")
+colnames(orig_fn)[1] <- "annotator"
+colnames(orig_fn)[3] <- "coders_orig"
+
+# remove whitespace from task numbers and annotators
+orig_fn$task <- trimws(orig_fn$task)
+files$task <- trimws(files$task)
+
+orig_fn$annotator <- trimws(orig_fn$annotator)
+files$annotator <- trimws(files$annotator)
+
+# join both
+files <- left_join(files, orig_fn, by = c("task", "annotator"))
+
+
+# find overlapping task numbers (ignore warning for now)
+files01 <- files %>% arrange(as.numeric(task)) %>% select(task, file) %>% pivot_wider(names_from = task, values_from = file)
+
+# find all with multiple coders
+files01 <- files01[,which(sapply(1:length(files01), function(i) length(unlist(files01[,i])))>1)]
+
+
+```
+
+## Function for reading in Excel sheets
+
+This function reads in the Excel sheet and then returns a dataframe with either the vocalizations or the ape gestures (where two sheets with apes are available in one workbook, both are combined).
+
+```{r}
+
+# function for adding participant prefix to column name
+add_participant_prefix <- function(x) {
+  x <- unlist(strsplit(x, split = " "))
+  x <- paste0(x[2], "_", x[1])
+  return(x)
+}
+
+# function for replacing non-numeric ratings
+
+replace_non_numerics <- function(df) {
+  
+  # find relevant columns
+  find_ratings <- grep("Rating", colnames(df))
+
+for(i in 1:length(find_ratings)) {
+  if(!is.numeric(unlist(df[,find_ratings[i]]))) {
+    df[,find_ratings[i]] <- suppressWarnings(as.numeric(unlist(df[,find_ratings[i]])))
+  }
+}
+  
+  return(df)
+}
+
+
+
+
+read_excel_custom <- function(path, type = c("voc", "apes")) {
+  
+  # list of sheets to determine how many
+  # vocalization and/or ape sheets there are
+  my_sheets <- excel_sheets(path)
+  
+  
+  # get coders from origoinal filename
+  coder_ids <- files[which(files$file==path),]$coders_orig
+  coder_ids <- unlist(strsplit(trimws(coder_ids), "; ?|, ?| "))
+  
+  
+  if(any(nchar(coder_ids)<6)) {
+    small_id <- which(nchar(coder_ids) < 6)
+    coder_ids <- coder_ids[-small_id]
+  }
+  
+
+  
+  #coder_ids <- gsub(".xlsx", "", unlist(strsplit(coder_ids, "TASK.*?_"))[2])
+  # unlist(strsplit(trimws(coder_ids), "; ?|, ?| +|(?<=v)_(?! )", perl = T))
+  #coder_ids <- unlist(strsplit(trimws(coder_ids), ", ?| +|(?<=v)_(?! )", perl = T))
+  
+  # coder_ids <- unlist(strsplit(trimws(coder_ids), ", ?| +|(?<=v)_", perl = T))
+  
+  if(type == "voc") {
+    voc <- read_excel(path, sheet = "Vocalizations")
+    
+    # replace non-numeric items
+    voc <- replace_non_numerics(voc)
+    
+    # remove additional columns if there are any
+    remove_cols <- grep("\\.\\.\\.", colnames(voc))
+    
+    if(length(remove_cols) > 0) {
+        voc <- voc[,-remove_cols]
+      }
+    
+    # replace column names for better pivoting
+    colnames(voc) <- gsub("Participant ", "Answer P", colnames(voc))
+    
+ for(i in 1:length(colnames(voc))) {
+   if(grepl("P.$", colnames(voc)[i])) {
+     colnames(voc)[i] <- add_participant_prefix(colnames(voc)[i])
+   }
+ }
+    
+    voc <- voc %>% pivot_longer(cols = c(3:length(voc)), names_to = c("Participant", ".value"), names_sep = "_")
+ 
+    
+    # add Coder IDs
+    n_c <- length(levels(factor(voc$Participant))) # number of coders
+    voc <- left_join(voc, tibble(Participant = paste0("P", 1:n_c),
+           Coder_ID = coder_ids[1:n_c]))
+    
+    
+    
+    # check if there is another vocalizations sheet
+    # (if there are two vocalizations sheets, there are no
+    # ape sheets! This is good, otherwise it would mess up the coder IDs)
+    
+    if(any(grepl("Vocalizations \\(2\\)", my_sheets))) {
+      
+      
+        voc2 <- read_excel(path, sheet = "Vocalizations (2)")
+        
+        # remove additional columns if there are any
+    remove_cols <- grep("\\.\\.\\.", colnames(voc2))
+    
+    if(length(remove_cols) > 0) {
+        voc2 <- voc2[,-remove_cols]
+      }
+        
+            # replace non-numeric items
+    voc2 <- replace_non_numerics(voc2)
+        
+    
+    # replace column names for better pivoting
+    colnames(voc2) <- gsub("Participant ", "Answer P", colnames(voc2))
+    
+ for(i in 1:length(colnames(voc2))) {
+   if(grepl("P.$", colnames(voc2)[i])) {
+     colnames(voc2)[i] <- add_participant_prefix(colnames(voc2)[i])
+   }
+ }
+    
+    voc2 <- voc2 %>% pivot_longer(cols = c(3:length(voc2)), names_to = c("Participant", ".value"), names_sep = "_")
+ 
+    
+    # add Coder IDs
+    n_c <- length(levels(factor(voc2$Participant))) # number of coders
+    
+    # remove coder IDs from Vocalizations tab
+    remove_n <- length(levels(factor(voc$Coder_ID)))
+    coder_ids_voc2 <- coder_ids[(remove_n+1):length(coder_ids)]
+    
+    # join with coder IDs
+    voc2 <- left_join(voc2, tibble(Participant = paste0("P", 1:n_c),
+           Coder_ID = coder_ids_voc2[1:n_c]))
+    
+    # combine with voc
+    voc <- rbind(voc, voc2)
+    
+    }
+    
+    # remove Participant number to avoid confusion
+    voc <- select(voc, -Participant)
+    return(voc)
+    
+    
+  } else {
+    
+    if(any(grepl("Ape 2", my_sheets))) {
+      apes01 <- read_excel(path, sheet = "Ape 1")
+      
+          # replace non-numeric items
+    apes01 <- replace_non_numerics(apes01)
+      
+      
+      # remove additional columns if there are any
+      remove_cols <- grep("\\.\\.\\.", colnames(apes01))
+      
+      if(length(remove_cols) > 0) {
+        apes01 <- apes01[,-remove_cols]
+      }
+      
+      # make sure column names are consistent
+    colnames(apes01) <- gsub("p4", "P4", colnames(apes01))
+      
+      # change column names for better pivoting
+      colnames(apes01) <- gsub("Participant ", "Answer P", colnames(apes01))
+      
+      for(i in 1:length(colnames(apes01))) {
+        if(grepl("P.$", colnames(apes01)[i])) {
+          colnames(apes01)[i] <- add_participant_prefix(colnames(apes01)[i])
+        }
+      }
+      
+    # pivot to longer format
+      apes01 <- apes01 %>% pivot_longer(cols = c(3:length(apes01)), names_to = c("Participant", ".value"), names_sep="_")
+      
+      # add participant ID: 
+      # to do so, first check how many participants
+      # there are in the vocalizations spreadsheet
+      # and remove those from the coder_id vector
+      
+      remove_n <- length(grep("Participant", colnames(read_excel(path, sheet = "Vocalizations"))))
+      
+      # these are the coder IDs for the apes:
+      coder_ids_apes <- coder_ids[(remove_n+1) : length(coder_ids)]
+      
+      # number of participants
+      n_c <- length(levels(factor(apes01$Participant)))
+      
+      # add coder ID
+      apes01 <- left_join(apes01, tibble(Participant = paste0("P", c(1:n_c)),
+             Coder_ID = coder_ids_apes[1:n_c]))
+      
+      # remove those for the next iteration
+      coder_ids_apes2 <- coder_ids_apes[(n_c+1):length(coder_ids_apes)]
+      
+      # read second apes sheet
+      apes02 <- read_excel(path, sheet = "Ape 2")
+      
+          # replace non-numeric items
+    apes02 <- replace_non_numerics(apes02)
+      
+              # make sure that ratings are numeric
+        apes02 <- apes02 %>% suppressWarnings(mutate(across(starts_with("Rating"), as.numeric)))
+      
+            # remove additional columns if there are any
+      remove_cols <- grep("\\.\\.\\.", colnames(apes02))
+      
+      if(length(remove_cols) > 0) {
+        apes02 <- apes02[,-remove_cols]
+      }
+      
+      # make sure column names are consistent
+    colnames(apes02) <- gsub("p4", "P4", colnames(apes02))
+      
+      # change column names for better pivoting
+      colnames(apes02) <- gsub("Participant ", "Answer P", colnames(apes02))
+      
+      for(i in 1:length(colnames(apes02))) {
+        if(grepl("P.$", colnames(apes02)[i])) {
+          colnames(apes02)[i] <- add_participant_prefix(colnames(apes02)[i])
+        }
+      }
+      
+    # pivot to longer format
+      apes02 <- apes02 %>% pivot_longer(cols = c(3:length(apes02)), names_to = c("Participant", ".value"), names_sep="_")
+      
+      
+      
+      # add participant ID: 
+      # number of participants
+      n_c <- length(levels(factor(apes02$Participant)))
+      
+      apes02 <- left_join(apes02, tibble(Participant = paste0("P", c(1:n_c)),
+             Coder_ID = coder_ids_apes2))
+      
+      
+      apes <- rbind(apes01, apes02)
+      
+      # remove Participant to avoid confusion
+      apes <-select(apes, -Participant)
+      
+      # return result
+      return(apes)
+      
+      
+    } else {
+      apes <- read_excel(path, sheet = "Ape 1")
+      
+          # replace non-numeric items
+    apes <- replace_non_numerics(apes)
+    
+      
+      # remove additional columns if there are any
+      remove_cols <- grep("\\.\\.\\.", colnames(apes))
+      if(length(remove_cols) > 0) {
+        apes <- apes[,-remove_cols]
+      }
+      
+      # make sure column names are consistent
+    colnames(apes) <- gsub("p4", "P4", colnames(apes))
+      
+      # change column names for better pivoting
+      colnames(apes) <- gsub("Participant ", "Answer P", colnames(apes))
+      
+      for(i in 1:length(colnames(apes))) {
+        if(grepl("P.$", colnames(apes)[i])) {
+          colnames(apes)[i] <- add_participant_prefix(colnames(apes)[i])
+        }
+      }
+      
+    # pivot to longer format
+      apes <- apes %>% pivot_longer(cols = c(3:length(apes)), names_to = c("Participant", ".value"), names_sep="_")
+      
+      # add participant ID: 
+      # to do so, first check how many participants
+      # there are in the vocalizations spreadsheet
+      # and remove those from the coder_id vector
+      remove_n <- length(grep("Participant", colnames(read_excel(path, sheet = "Vocalizations"))))
+      
+      # these are the coder IDs for the apes:
+      coder_ids_apes <- coder_ids[(remove_n+1) : length(coder_ids)]
+      
+      # number of participants
+      n_c <- length(levels(factor(apes$Participant)))
+      
+       # add coder ID
+      apes <- left_join(apes, tibble(Participant = paste0("P", c(1:n_c)),
+             Coder_ID = coder_ids_apes[1:n_c]))
+      
+      # remove Participant to avoid confusion
+      apes <-select(apes, -Participant)
+      
+      # return result
+      return(apes)
+      
+      
+    }
+    
+    
+  }
+  
+}
+
+
+
+# read in all Excel sheets 
+
+for(i in 1:nrow(files)) {
+  
+  my_excel_sheets <- excel_sheets(files$file[i])
+  
+  if(any(grepl("Ape", my_excel_sheets))) {
+    cur <- read_excel_custom(files$file[i], "apes")
+    
+    if(!exists("all_sheets")) {
+      all_sheets <- cur
+    } else {
+      all_sheets <- rbind(all_sheets, cur)
+    }
+    
+    
+  }
+  
+  
+  
+  
+  
+  
+  print(my_excel_sheets)
+  
+}
+
+
+# writexl::write_xlsx(all_sheets, "helpers/all_apes.xlsx")
+
+# same for vocalizations
+
+for(i in 1:nrow(files)) {
+  
+  my_excel_sheets <- excel_sheets(files$file[i])
+  
+  if(any(grepl("Vocalization", my_excel_sheets))) {
+    cur <- read_excel_custom(files$file[i], "voc")
+    
+    if(!exists("all_sheets2")) {
+      all_sheets2 <- cur
+    } else {
+      all_sheets2 <- rbind(all_sheets2, cur)
+    }
+    
+    
+  }
+  
+  
+  
+  
+  
+  
+  print(my_excel_sheets)
+  
+}
+
+
+# writexl::write_xlsx(all_sheets2, "helpers/all_vocs.xlsx")
+
+
+
+```
+
+## Finding mismatches - vocalizations
+
+```{r}
+
+for(j in 1:length(files01)) {
+  # matching files
+cur_files <- unlist(files01[,j])
+
+
+# vocalizations
+cur_vocs <- lapply(cur_files, read_excel_custom, "voc")
+
+for(i in 1:length(cur_vocs)) {
+  
+  colnames(cur_vocs[[i]])[which(colnames(cur_vocs[[i]]) == "Rating")] <- paste0("Rating", i)
+  
+}
+
+cur_vocs01 <- cur_vocs[[1]]
+
+if(length(cur_vocs)>1) {
+  cur_vocs01$Rating2 <- cur_vocs[[2]]$Rating2
+  cur_vocs01$match <- ifelse(cur_vocs01$Rating1 == cur_vocs01$Rating2, TRUE, FALSE)
+}
+
+if(length(cur_vocs)>2) {
+  cur_vocs01$Rating3 <- cur_vocs[[3]]$Rating3
+  cur_vocs01$match <- ifelse(cur_vocs01$Rating1 == cur_vocs01$Rating2 & cur_vocs01$Rating1 == cur_vocs01$Rating3, TRUE, FALSE)
+}
+
+# remove Coder IDs and add Task ID instead
+cur_vocs01 <- cur_vocs01 %>% select(-`Trial id`, -Coder_ID)
+cur_vocs01 <- mutate(cur_vocs01, Task_ID = colnames(files01)[j])
+
+writexl::write_xlsx(filter(cur_vocs01, !match), paste0("mismatches/mismatches_voc", colnames(files01)[j], ".xlsx"))
+
+print(j)
+}
+
+
+
+
+
+
+```
+
+## 
+
+## Finding mismatches - apes
+
+```{r}
+
+for(j in 1:length(files01)) {
+  
+  
+  # matching files
+cur_files <- unlist(files01[,j])
+
+
+
+# check if apes are in the sheet
+if(any(grepl("Ape", excel_sheets(cur_files[1])))) {
+  
+  # apes
+cur_vocs <- lapply(cur_files, read_excel_custom, "apes")
+
+for(i in 1:length(cur_vocs)) {
+  
+  colnames(cur_vocs[[i]])[which(colnames(cur_vocs[[i]]) == "Rating")] <- paste0("Rating", i)
+  
+}
+
+cur_vocs01 <- cur_vocs[[1]]
+
+if(length(cur_vocs)>1) {
+  cur_vocs01$Rating2 <- cur_vocs[[2]]$Rating2
+  cur_vocs01$match <- ifelse(cur_vocs01$Rating1 == cur_vocs01$Rating2, TRUE, FALSE)
+}
+
+if(length(cur_vocs)>2) {
+  cur_vocs01$Rating3 <- cur_vocs[[3]]$Rating3
+  cur_vocs01$match <- ifelse(cur_vocs01$Rating1 == cur_vocs01$Rating2 & cur_vocs01$Rating1 == cur_vocs01$Rating3, TRUE, FALSE)
+}
+
+# remove Coder IDs and add Task ID instead
+cur_vocs01 <- cur_vocs01 %>% select(-matches("Trial [Ii]d"), -Coder_ID)
+cur_vocs01 <- mutate(cur_vocs01, Task_ID = colnames(files01)[j])
+
+writexl::write_xlsx(filter(cur_vocs01, !match), paste0("mismatches/mismatches_apes", colnames(files01)[j], ".xlsx"))
+  
+}
+
+
+
+print(j)
+}
+
+
+
+
+```
+
+## 
+
+## Combine all mismatches
+
+```{r}
+
+f <- list.files("mismatches/", full.names = TRUE)
+f_voc <- grep("apes", f, invert = T, value = T)
+f_apes  <- grep("apes", f, invert = F, value = T)
+
+
+
+mismatches_apes <- do.call(bind_rows, lapply(1:length(f_apes), function(i) mutate(read_xlsx(f_apes[i]), file = gsub(".*/", "", f_apes[i]))))
+
+mismatches_voc <- do.call(bind_rows, lapply(1:length(f_voc), function(i) mutate(read_xlsx(f_voc[i]), file = gsub(".*/", "", f_voc[i]))))
+
+
+```
+
+## Calculate IAA - vocalizations
+
+```{r}
+
+all_iaa <- tibble(
+  Task = rep(NA, ncol(files01)),
+  file1 = character(ncol(files01)),
+  file2 = character(ncol(files01)),
+  file3 = character(ncol(files01)),
+  Annotator1 = character(ncol(files01)),
+  Annotator2 = character(ncol(files01)),
+  Annotator3 = character(ncol(files01)),
+  IAA = numeric(ncol(files01))
+)
+
+
+for(j in 1:length(files01)) {
+  
+  # list of current files
+  cur_files <- unlist(files01[,j])
+  
+  # current task
+all_iaa$Task[j] <- colnames(files01[,j])
+all_iaa[j,(2:(2+(length(cur_files))-1))] <- tibble(files = cur_files) %>% t()
+
+# get annotator codes
+cur_annotators <- sapply(1:length(cur_files), function(i) unname(gsub(" .*", "", gsub(".*//", "", cur_files[i]))))
+
+# add annotator codes to sheet
+all_iaa[j,(5:(5+(length(cur_annotators))-1))] <- tibble(annotators = cur_annotators) %>% t() %>% unname()
+  
+  # read items
+cur_sheets <- lapply(cur_files, read_excel_custom, type = "voc")
+
+# use the first sheet as master sheet
+# and add the ratings from the others
+cur_master_sheet <- cur_sheets[[1]]
+
+if(length(cur_sheets) == 3) {
+  iaa_cur <- bind_cols(bind_cols(cur_master_sheet,
+          select(cur_sheets[[2]], matches("[Rr]ating")), .name_repair = "unique"), select(cur_sheets[[3]], matches("[Rr]ating")), .name_repair = "unique") %>% select(matches("[Rr]ating")) %>% as.matrix() %>% t() %>% kripp.alpha(method = "ordinal")
+} else {
+  iaa_cur <- bind_cols(cur_master_sheet,
+          select(cur_sheets[[2]], matches("[Rr]ating")), .name_repair = "unique") %>% select(matches("[Rr]ating")) %>% as.matrix() %>% t() %>% kripp.alpha(method = "ordinal")
+}
+
+all_iaa$IAA[j] <- iaa_cur$value
+
+  
+}
+
+# write_xlsx(all_iaa, "iaa/all_iaa_vocalizations.xlsx")
+
+
+```
+
+## IAA Apes
+
+```{r}
+
+all_iaa <- tibble(
+  Task = rep(NA, ncol(files01)),
+  file1 = character(ncol(files01)),
+  file2 = character(ncol(files01)),
+  file3 = character(ncol(files01)),
+  Annotator1 = character(ncol(files01)),
+  Annotator2 = character(ncol(files01)),
+  Annotator3 = character(ncol(files01)),
+  IAA = numeric(ncol(files01))
+)
+
+
+for(j in 1:length(files01)) {
+  
+  # list of current files
+  cur_files <- unlist(files01[,j])
+  
+  # check if there are ape sheets
+  my_sheets <- excel_sheets(cur_files[1])
+  
+  if(any(grepl("Ape", my_sheets))) {
+    # current task
+all_iaa$Task[j] <- colnames(files01[,j])
+all_iaa[j,(2:(2+(length(cur_files))-1))] <- tibble(files = cur_files) %>% t()
+
+# get annotator codes
+cur_annotators <- sapply(1:length(cur_files), function(i) unname(gsub(" .*", "", gsub(".*//", "", cur_files[i]))))
+
+# add annotator codes to sheet
+all_iaa[j,(5:(5+(length(cur_annotators))-1))] <- tibble(annotators = cur_annotators) %>% t() %>% unname()
+  
+  # read items
+cur_sheets <- lapply(cur_files, read_excel_custom, type = "apes")
+
+# use the first sheet as master sheet
+# and add the ratings from the others
+cur_master_sheet <- cur_sheets[[1]]
+
+if(length(cur_sheets) == 3) {
+  iaa_cur <- bind_cols(bind_cols(cur_master_sheet,
+          select(cur_sheets[[2]], matches("[Rr]ating")), .name_repair = "unique"), select(cur_sheets[[3]], matches("[Rr]ating")), .name_repair = "unique") %>% select(matches("[Rr]ating")) %>% as.matrix() %>% t() %>% kripp.alpha(method = "ordinal")
+} else {
+  iaa_cur <- bind_cols(cur_master_sheet,
+          select(cur_sheets[[2]], matches("[Rr]ating")), .name_repair = "unique") %>% select(matches("[Rr]ating")) %>% as.matrix() %>% t() %>% kripp.alpha(method = "ordinal")
+}
+
+all_iaa$IAA[j] <- iaa_cur$value
+  }
+  
+  
+
+  
+}
+
+# write_xlsx(all_iaa, "iaa/all_iaa_apes.xlsx")
+
+```
+
+## Visualize IAA distribution
+
+```{r}
+
+iaa_apes <- read_xlsx("iaa/all_iaa_apes.xlsx")
+iaa_vocs <- read_xlsx("iaa/all_iaa_vocalizations.xlsx")
+
+# replace annotator acronyms by Rater_number
+replace_annotator_acronyms <- function(x) {
+  x <- case_when(x == "SK" ~ "Rater 1",
+          x == "MP" ~ "Rater 4",
+          x == "SH" ~ "Rater 2",
+          x == "F" ~ "Rater 3")
+  
+  return(x)
+}
+
+iaa_apes <- iaa_apes %>% mutate(across(starts_with("Annotator"), replace_annotator_acronyms))
+
+iaa_vocs <- iaa_vocs %>% mutate(across(starts_with("Annotator"), replace_annotator_acronyms))
+
+# remove empty rows
+iaa_apes <- iaa_apes %>% filter(!is.na(Task))
+
+# visualize
+
+tibble(type = c(rep("Apes", nrow(iaa_apes)), rep("Vocalizations", nrow(iaa_vocs))), IAA = c(iaa_apes$IAA, iaa_vocs$IAA)) %>% ggplot(aes(x = type, y = IAA)) + geom_beeswarm(col = "darkblue") + geom_boxplot(width = .5, fill = "yellow", alpha = .1) + xlab("Type") + 
+  theme(axis.text = element_text(size = 18), 
+        axis.title = element_text(size = 18)) +
+  ggtitle("Inter-Annotator Agreement") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5,size=19))
+
+# ggsave("iaa_both.png", width = 8, height = 8)
+
+```

@@ -1,0 +1,4 @@
+Rec_Session_Id,Trial_Id,Block_Name,Block_Nr,Task_Name,Task_Nr,Audio device,Condition_Id,Countdown,English translation,English translation 1,English translation 2,Environment,Environment 1,environment choice ,Environment_copy_c417,Goal,Hearing abilities,Hearing disabilities,Input device,Native language,Other languages,Output device,Pilot,progress bar,quantity,Text device,toughness,toughness 
+1112922,1,block_1,1,Greetings,1,"",1,"","","","","","","","","","","","","","","","","","","","",""
+1112922,1,block_1,1,Survey,2,option_1,1,"","","","","","",option_0,"","","",false,"",Spanish,English and Catalan,"","","","",option_0,"",""
+1112922,1,block_1,1,Instructions,3,"",1,0,"","","","","","","","","","","","","","","","","","","",""

@@ -1,0 +1,9 @@
+Rec_Session_Id,Trial_Id,Block_Name,Block_Nr,Task_Name,Task_Nr,Audio device,Condition_Id,Countdown,English translation,English translation 1,English translation 2,Environment,Environment 1,environment choice ,Environment_copy_c417,Goal,Hearing abilities,Hearing disabilities,Input device,Native language,Other languages,Output device,Pilot,progress bar,quantity,Text device,toughness,toughness 
+1112944,1,block_1,1,Greetings,1,"",1,"","","","","","","","","","","","","","","","","","","","",""
+1112944,1,block_1,1,Survey,2,option_0,1,"","","","","","",option_0,"","","",false,"",portuguese,"english, spanish, french, italian, japanese","","","","",option_0,"",""
+1112944,1,block_1,1,Instructions,3,"",1,0,"","","","","","","","","","","","","","","","","","","",""
+1112944,50,block_1,1,Vocalizations task,4,"",1,"","","",eat,"","","","","","","","","","","","","","","","",""
+1112944,87,block_1,1,Vocalizations task,4,"",1,"","","",whistle,"","","","","","","","","","","","","","","","",""
+1112944,53,block_1,1,Vocalizations task,4,"",1,"","","",laugh,"","","","","","","","","","","","","","","","",""
+1112944,23,block_1,1,Vocalizations task,4,"",1,"","","",saint,"","","","","","","","","","","","","","","","",""
+1112944,63,block_1,1,Vocalizations task,4,"",1,"","","",eat,"","","","","","","","","","","","","","","","",""

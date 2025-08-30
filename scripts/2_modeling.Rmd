@@ -1,0 +1,744 @@
+---
+title: "Experiments in language evolution: inferences from closed- vs open-ended semantic space paradigms"
+subtitle: "Data modeling"
+author: "analysis by Aleksandra Ćwiek"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  rmarkdown::html_document:
+    theme: readable
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    df_print: paged
+    code_folding: hide
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: '3'
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+editor_options: 
+  chunk_output_type: console
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+**Experiments in language evolution: inferences from closed- vs open-ended semantic space paradigms**
+
+Svetlana Kuleshova\*1,2, Stefan Hartmann3, and Michael Pleyer1, Marta
+Sibierska1, Johan Blomberg4, Przemysław Żywiczyński1, Aleksandra
+Ćwiek5,1, Sławomir Wacewicz1
+
+\*Corresponding Author: 40010189\@parisnanterre.fr
+
+1Nicolaus Copernicus University in Toruń, Center for Language Evolution
+Studies, Fosa Staromiejska 3, 87-100 Toruń, Poland.
+
+2ArScAn-Équipe AnTET (UMR 7041), CNRS, Université Paris Nanterre, 21
+Allée de l'Université, 92000, Nanterre, France.
+
+3Heinrich Heine University Düsseldorf, Faculty of Arts and Humanities,
+Universitätsstraße 1, 40225 Düsseldorf, Germany.
+
+4Stockholm University, Department of Swedish and Multilingualism.
+Universitetsvägen 10, 106 91 Stockholm.
+
+5Leibniz-Centre General Linguistics, Berlin, 10719, Germany
+
+We challenge the validity of the multiple-choice paradigm used in many
+communication experiments. We replicated two experiments and replaced
+the original multiple-choice design with free-text answers. Our results
+indicate that participants performed worse compared to the original
+studies. The post hoc analysis showed that often relevant semantic
+domains were correctly identified, but full congruency with the target
+concepts was rare. We discuss how the results of each paradigm can be
+mapped onto a larger picture of language evolution.
+
+What inferences about reality can we make from linguistic experiments?
+By definition, controlled experiments do not represent reality in all
+its complexity, and thus, it is important to be cautious when drawing
+conclusions. As one example, some recent experimental studies have made
+strong claims concluding that humans can understand improvised or
+interspecies forms of communication, specifically, novel non-linguistic
+vocalizations (Ćwiek et al., 2021) and gestures in non-human great apes
+(Graham and Hobaiter, 2023). Here, we follow up on these studies,
+altering one crucial aspect: Both original studies used a
+multiple-choice paradigm, whereby participants were constrained to
+choose one answer from a small set of alternatives; that is, for each
+gesture or vocalisation they were offered a set of potential
+interpretations and asked to guess the one best reflecting its intended
+meaning. We expected that replacing the closed-ended, multiple-choice
+paradigm with an open-ended, free-text paradigm would lead to different
+results and thus different conclusions about human capacities to
+‘understand’ ape gestures or novel vocalizations.
+
+To test our hypothesis, we replicated the studies by Ćwiek et al. and
+Graham & Hobaiter, but with the participants freely typing in their
+answer (i.e., their interpretation of the meaning of an ape gesture or
+novel vocalisation) rather than selecting it from a set of predefined
+choices. To assess the proximity of the participants’ answers with the
+target concepts, we used three complementary approaches: (i) binary
+assessment of correctness (yes/no), (ii) manual coding on a four-point
+scale, (iii) cosine similarity between the participants’ responses and
+the target concepts using ConceptNet. For (i) and (ii), participants’
+answers were coded by two raters on a four-point Likert scale
+(transformed into a binary system for (i)), showing moderate-to-high
+inter-rater agreement. All mismatches between coders were discussed in
+the team and resolved. For (iii), the proximity between the words in the
+responses (heads of phrases in the case of multi-word answers) and the
+word denoting the target concept in ConceptNet (Speer et al. 2017) were
+assessed automatically. Across all approaches, our results show that
+participants performed qualitatively worse compared to the original
+studies, with a vast majority of responses showing no resemblance
+whatsoever to the target concept according to the manual coding
+procedure. In the ConceptNet analysis, the responses were found to be
+conceptually fairly close to the target concepts in many cases (e.g.,
+the same semantic domain, as in ‘sleep’ vs ‘snore’), but hardly any
+response was fully congruent with the target concept.
+
+Apart from revisiting the question to what extent participants
+“understand” novel vocalizations or ape gestures, our data give us the
+opportunity to evaluate different possibilities of interpreting
+participants’ free-text answers: manual coding with different levels of
+granularity on the one hand, and automatic similarity detection using
+NLP resources on the other. The three measures we used carve out
+different semantic landscapes, shaping how we perceive communicative
+transparency. A perfect-match approach treats meaning as a binary on/off
+switch, limiting “understanding” to exact hits while discarding
+near-misses as failures. The Likert-scale approach expands this space,
+recognizing perceived shades of similarity. The ConceptNet-based cosine
+similarity approach stretches the landscape even further, mapping words
+onto a gradient of conceptual distances, where even broad associations
+register as meaningful connections. Because these methods define
+similarity differently, they potentially reveal different facets of how
+novel signals convey meaning.
+
+We thus conclude that different setups and analysis methods give us a
+nuanced perspective on the role of semantic space in semiotic
+experiments. These various paths to data collection and data treatment
+can inform a nuanced discussion of how experimental results can inform
+the evolution of today’s languages.
+
+# Data preparation
+
+## Source setup
+
+```{r source setup, echo = TRUE, message=FALSE, warning = FALSE}
+########## folders ##########
+library(here)
+
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+
+parentfolder <- dirname(getwd())
+
+data          <- paste0(parentfolder, '/data/')
+models        <- paste0(parentfolder, '/models/')
+plots         <- paste0(parentfolder, '/plots/')
+scripts       <- paste0(parentfolder, '/scripts/')
+
+########## source file ##########
+
+#source(paste0(scripts, "adjectives-preparation.R"))
+
+#################### packages ####################
+# Core tidyverse for wrangling + plotting; janitor/skimr for quick structure checks; patchwork for combining plots
+library(tidyverse)
+library(janitor)
+library(skimr)
+library(knitr)
+library(cowplot)
+library(ggdist)
+library(readxl)
+library(lubridate)
+library(patchwork)
+library(hexbin)
+library(PRROC)
+
+# Bayesian
+library(brms);
+library(loo);packageVersion("loo")
+library(HDInterval);packageVersion("HDInterval")
+library(cmdstanr);
+library(emmeans);packageVersion("emmeans")
+library(posterior);
+library(bayesplot);
+library(BayesFactor);
+library(tidybayes);packageVersion("tidybayes")
+library(bayestestR);
+
+# use all available cores for parallel computing
+options(mc.cores = parallel::detectCores())
+
+# Keep plots/readability consistent
+theme_set(theme_minimal(base_size = 12) + panel_border())
+
+colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                       "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+```{r echo = TRUE, message=FALSE, warning = FALSE}
+# --- figure & table captions ---
+outputFormat <- knitr::opts_knit$get("rmarkdown.pandoc.to"); if (is.null(outputFormat)) outputFormat <- ""
+capTabNo <- 1L; capFigNo <- 1L
+.last_fig_no <- NA_integer_
+
+capTab <- function(x){
+  if (outputFormat == 'html'){
+    x <- paste0("**Table ", capTabNo, ".** ", x)
+    capTabNo <<- capTabNo + 1L
+  }
+  x
+}
+
+capFig <- function(x, show_R_version=FALSE, show_package_versions=NULL, is_map=FALSE){
+  if (outputFormat == 'html'){
+    assign(".last_fig_no", capFigNo, envir = .GlobalEnv) # remember current number
+    x <- paste0("**Figure ", capFigNo, ".** ", x)
+    capFigNo <<- capFigNo + 1L
+  }
+  x
+}
+
+# --- plot hook to auto-save ---
+.default_plot_hook <- knitr::knit_hooks$get("plot")
+.has_magick <- requireNamespace("magick", quietly = TRUE)
+
+knitr::knit_hooks$set(plot = function(x, options){
+  res <- if (is.function(.default_plot_hook)) .default_plot_hook(x, options) else NULL
+
+  if (!is.null(options$fig.cap)) {
+    fig_no <- get(".last_fig_no", envir = .GlobalEnv, inherits = FALSE)
+    if (!is.na(fig_no)) {
+      fig_no_str <- sprintf("%02d", fig_no)
+
+      # subfolder = Rmd filename without extension
+      rmd_name <- tools::file_path_sans_ext(basename(knitr::current_input()))
+      target_dir <- file.path(plots, rmd_name)
+      if (!dir.exists(target_dir)) dir.create(target_dir, recursive = TRUE)
+
+      png_out <- file.path(target_dir, paste0("Figure_", fig_no_str, ".png"))
+      tif_out <- file.path(target_dir, paste0("Figure_", fig_no_str, ".tif"))
+
+      file.copy(x, png_out, overwrite = TRUE)
+
+      if (.has_magick) {
+        img <- magick::image_read(png_out)
+        magick::image_write(img, path = tif_out, format = "tiff", compression = "lzw")
+      } else {
+        file.copy(png_out, tif_out, overwrite = TRUE)
+      }
+    }
+  }
+
+  res
+})
+
+```
+
+Other helpers
+
+```{r}
+bb_corr <- function(x, y, R = 4000, seed = 1708) {
+  stopifnot(length(x) == length(y))
+  set.seed(seed)
+  n <- length(x)
+  out <- numeric(R)
+  for (r in seq_len(R)) {
+    w <- rexp(n)          # Dirichlet via i.i.d. Exponential then normalize
+    w <- w / sum(w)
+    mx <- sum(w * x); my <- sum(w * y)
+    sx <- sqrt(sum(w * (x - mx)^2))
+    sy <- sqrt(sum(w * (y - my)^2))
+    out[r] <- sum(w * (x - mx) * (y - my)) / (sx * sy)
+  }
+  out
+}
+
+summ_post <- function(draws, name){
+  h <- hdi(draws, ci = 0.95)
+  tibble(pair = name,
+         mean = mean(draws),
+         median = median(draws),
+         hdi_low = h$CI_low,
+         hdi_high = h$CI_high)
+}
+
+bf_bic <- function(y, x){
+  fit1 <- lm(y ~ x)
+  fit0 <- lm(y ~ 1)
+  BIC0 <- BIC(fit0); BIC1 <- BIC(fit1)
+  # BF10 ≈ exp((BIC0 - BIC1)/2)
+  exp((BIC0 - BIC1)/2)
+}
+```
+
+
+## Load in data frames
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df <- read_csv(paste0(data, "final_df.csv"))  %>% clean_names()
+```
+
+# Correlations
+
+```{r}
+dat_cor <- df %>%
+  select(cosine = cosine_rescaled, judged = ord_norm, binary = bin_f) %>%
+  drop_na()
+```
+
+Pearson correlations (with CIs)
+
+```{r}
+pearson_mat <- cor(dat_cor, use = "pairwise.complete.obs", method = "pearson")
+pearson_mat
+```
+
+Pairwise Pearson tests (p-values + CI)
+
+```{r}
+pearson_tests <- list(
+  cosine_judged = cor.test(dat_cor$cosine, dat_cor$judged),
+  cosine_binary = cor.test(dat_cor$cosine, dat_cor$binary),
+  judged_binary = cor.test(dat_cor$judged, dat_cor$binary)
+)
+pearson_tests
+
+pearson_tbl <- tibble(
+  pair = c("cosine ~ judged", "cosine ~ binary", "judged ~ binary"),
+  r = c(cor(dat_cor$cosine, dat_cor$judged),
+        cor(dat_cor$cosine, dat_cor$binary),
+        cor(dat_cor$judged, dat_cor$binary))
+)
+```
+
+Bayesian correlations via BayesFactor
+(Point-biserial is just Pearson on numeric 0/1; we still get Bayesian posterior for rho.)
+
+```{r}
+post_cos_jud <- bb_corr(dat_cor$cosine, dat_cor$judged, R = 8000, seed = 1708)
+post_cos_bin <- bb_corr(dat_cor$cosine, dat_cor$binary, R = 8000, seed = 1708)
+post_jud_bin <- bb_corr(dat_cor$judged, dat_cor$binary, R = 8000, seed = 1708)
+
+bayes_corr_summary <- bind_rows(
+  summ_post(post_cos_jud, "cosine ~ judged"),
+  summ_post(post_cos_bin, "cosine ~ binary"),
+  summ_post(post_jud_bin, "judged ~ binary")
+)
+bayes_corr_summary
+
+# Posterior density plots
+bind_rows(
+  data.frame(rho = post_cos_jud, pair = "cosine~judged"),
+  data.frame(rho = post_cos_bin, pair = "cosine~binary"),
+  data.frame(rho = post_jud_bin, pair = "judged~binary")
+) %>%
+  ggplot(aes(rho)) + geom_density() + facet_wrap(~pair, scales = "free") +
+  geom_vline(xintercept = 0, linetype = 2)
+```
+
+BIC-approx Bayes factors for "correlation != 0"
+For continuous-continuous: linear model; for (cont ~ binary): also linear is fine here.
+
+```{r}
+BF_cos_jud <- bf_bic(dat_cor$cosine, dat_cor$judged)
+BF_cos_bin <- bf_bic(dat_cor$cosine, dat_cor$binary)
+BF_jud_bin <- bf_bic(dat_cor$judged, dat_cor$binary)
+
+bf_tbl <- tibble(
+  pair = c("cosine ~ judged", "cosine ~ binary", "judged ~ binary"),
+  BF10 = c(BF_cos_jud, BF_cos_bin, BF_jud_bin)
+)
+```
+
+One clean summary table
+
+```{r}
+pearson_tbl %>%
+  left_join(bayes_corr_summary, by = "pair") %>%
+  left_join(bf_tbl, by = "pair")
+```
+
+# Modeling
+
+We first fit baseline models for each of the three measures, with only random intercepts for participant, native language, and stimulus. After baselines we’ll add cross-measure “coupling” models to test how measures relate (but aren’t identical), compare by LOO (and optionally Bayes factors via bridgesampling), and extract posteriors that demonstrate distinct yet overlapping semantic landscapes.
+
+Full solution. (It will take days.)
+
+```{r}
+{
+  set.seed(1708)
+
+  ## ---- ensure models dir exists (you already have `models` as an absolute path) ----
+  if (!dir.exists(models)) dir.create(models, recursive = TRUE, showWarnings = FALSE)
+
+  ## ---- data prep (minimal; no z-scoring of cosine) ----
+  if (!"ord_norm" %in% names(df)) df$ord_norm <- df$judged_similarity / 3
+  df_brm <- df
+  df_brm$participant      <- factor(df_brm$participant)
+  df_brm$stimulus_concept <- factor(df_brm$stimulus_concept)
+  df_brm$native_language  <- factor(df_brm$native_language) # decided to do without it because it was not variable and caused much longer computation times
+  df_brm$judged_ord       <- factor(df_brm$judged_similarity, levels = 0:3, ordered = TRUE)
+ # Replace values extremely close to 1 with exactly 1
+  df_brm$cosine_rescaled <- ifelse(
+    !is.na(df_brm$cosine_rescaled) & df_brm$cosine_rescaled > 1 & df_brm$cosine_rescaled <
+      1.001,
+    1,
+    df_brm$cosine_rescaled
+  )
+  
+  ## ---- very wide priors for baselines / couplings (not for ZOIB components) ----
+  .pri_bin <- c(
+    set_prior("normal(0, 5)", class = "Intercept"),
+    #set_prior("normal(0, 2)", class = "b"),
+    set_prior("student_t(3, 0, 5)", class = "sd")
+  )
+  .pri_ord <- c(
+    set_prior("normal(0, 5)", class = "Intercept"),  # thresholds
+    #set_prior("normal(0, 2)", class = "b"),
+    set_prior("student_t(3, 0, 5)", class = "sd")
+  )
+  .pri_wide <- c(
+    set_prior("normal(0, 5)", class = "Intercept"),
+    #set_prior("normal(0, 2)", class = "b"),
+    set_prior("student_t(3, 0, 5)", class = "sd")
+  )
+
+  ## ========================= BASELINES =========================
+  .bin_rds <- file.path(models, "fit_bin.rds")
+  if (file.exists(.bin_rds)) {
+    fit_bin <- readRDS(.bin_rds)
+  } else {
+    fit_bin <- brm(
+      binary_guess ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
+      data    = df_brm,
+      family  = bernoulli(),
+      prior   = .pri_bin,
+      chains  = 4, iter = 8000, warmup = 4000,
+      control = list(adapt_delta = 0.97, max_treedepth = 12),
+      seed    = 1708, refresh = 100,
+      save_pars = save_pars(all = TRUE)
+    )
+    saveRDS(fit_bin, .bin_rds)
+  }
+
+  .ord_rds <- file.path(models, "fit_ord.rds")
+  if (file.exists(.ord_rds)) {
+    fit_ord <- readRDS(.ord_rds)
+  } else {
+    fit_ord <- brm(
+      judged_ord ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
+      data    = df_brm,
+      family  = cumulative(link = "logit"),
+      prior   = .pri_ord,
+      chains  = 4, iter = 8000, warmup = 4000,
+      control = list(adapt_delta = 0.97, max_treedepth = 12),
+      seed    = 1708, refresh = 100,
+      save_pars = save_pars(all = TRUE)
+    )
+    saveRDS(fit_ord, .ord_rds)
+  }
+
+  .cos_rds <- file.path(models, "fit_cos.rds")
+  if (file.exists(.cos_rds)) {
+    fit_cos <- readRDS(.cos_rds)
+  } else {
+    fit_cos <- brm(
+      cosine_rescaled ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
+      data    = df_brm,
+      family  = zero_one_inflated_beta(),  # includes exact 0s and 1s
+      # per your rule: no explicit priors for ZOIB subcomponents
+      chains  = 4, iter = 8000, warmup = 4000,
+      control = list(adapt_delta = 0.97, max_treedepth = 12),
+      seed    = 1708, refresh = 100,
+      save_pars = save_pars(all = TRUE)
+    )
+    saveRDS(fit_cos, .cos_rds)
+  }
+
+  ## ---- compact Bayes R^2 (kept as r2_table) ----
+  .r2 <- function(fit) { r <- bayes_R2(fit); c(Estimate = mean(r), Q2.5 = quantile(r,.025), Q97.5 = quantile(r,.975)) }
+  r2_table <- data.frame(
+    model = c("Binary (Bernoulli)", "Judged (Ordinal)", "Cosine (ZOIB)"),
+    t(rbind(.r2(fit_bin), .r2(fit_ord), .r2(fit_cos)))
+  )
+  rownames(r2_table) <- NULL
+  r2_table$Estimate <- round(r2_table$Estimate, 3)
+  r2_table$Q2.5     <- round(r2_table$Q2.5, 3)
+  r2_table$Q97.5    <- round(r2_table$Q97.5, 3)
+  print(r2_table)
+
+  ## ========================= COUPLING MODELS =========================
+  ## Judged <- Cosine (no z-scoring; cosine_rescaled is 0–1 and interpretable)
+  .m_ord_cos_rds <- file.path(models, "m_ord_cos.rds")
+  if (file.exists(.m_ord_cos_rds)) {
+    m_ord_cos <- readRDS(.m_ord_cos_rds)
+  } else {
+    m_ord_cos <- brm(
+      judged_ord ~ 1 + cosine_rescaled +
+        (1 + cosine_rescaled | s | stimulus_concept) +
+        (1 | p | participant) + (1 | l | native_language),
+      data    = df_brm, family = cumulative("logit"),
+      prior   = .pri_wide,
+      chains  = 4, iter = 8000, warmup = 4000,
+      control = list(adapt_delta = 0.98, max_treedepth = 13),
+      seed    = 1708, refresh = 50,
+      save_pars = save_pars(all = TRUE)
+    )
+    saveRDS(m_ord_cos, .m_ord_cos_rds)
+  }
+
+  ## Binary <- Cosine
+  .m_bin_cos_rds <- file.path(models, "m_bin_cos.rds")
+  if (file.exists(.m_bin_cos_rds)) {
+    m_bin_cos <- readRDS(.m_bin_cos_rds)
+  } else {
+    m_bin_cos <- brm(
+      binary_guess ~ 1 + cosine_rescaled +
+        (1 + cosine_rescaled | s | stimulus_concept) +
+        (1 | p | participant) + (1 | l | native_language),
+      data    = df_brm, family = bernoulli(),
+      prior   = .pri_wide,
+      chains  = 4, iter = 8000, warmup = 4000,
+      control = list(adapt_delta = 0.98, max_treedepth = 13),
+      seed    = 1708, refresh = 50,
+      save_pars = save_pars(all = TRUE)
+    )
+    saveRDS(m_bin_cos, .m_bin_cos_rds)
+  }
+
+  ## Binary <- Judged (uses your 0–1 'ord_norm')
+  .m_bin_jud_rds <- file.path(models, "m_bin_jud.rds")
+  if (file.exists(.m_bin_jud_rds)) {
+    m_bin_jud <- readRDS(.m_bin_jud_rds)
+  } else {
+    m_bin_jud <- brm(
+      binary_guess ~ 1 + ord_norm +
+        (1 + ord_norm | s | stimulus_concept) +
+        (1 | p | participant) + (1 | l | native_language),
+      data    = df_brm, family = bernoulli(),
+      prior   = .pri_wide,
+      chains  = 4, iter = 8000, warmup = 4000,
+      control = list(adapt_delta = 0.98, max_treedepth = 13),
+      seed    = 1708, refresh = 50,
+      save_pars = save_pars(all = TRUE)
+    )
+    saveRDS(m_bin_jud, .m_bin_jud_rds)
+  }
+
+  ## Cosine (ZOIB, μ) <- Judged (keep zoi/oi intercept-only)
+  .m_cos_jud_rds <- file.path(models, "m_cos_jud.rds")
+  if (file.exists(.m_cos_jud_rds)) {
+    m_cos_jud <- readRDS(.m_cos_jud_rds)
+  } else {
+    m_cos_jud <- brm(
+      cosine_rescaled ~ 1 + ord_norm +
+        (1 + ord_norm | s | stimulus_concept) +
+        (1 | p | participant) + (1 | l | native_language),
+      data    = df_brm, family = zero_one_inflated_beta(),
+      # no explicit priors for ZOIB components per your instruction
+      chains  = 4, iter = 8000, warmup = 4000,
+      control = list(adapt_delta = 0.98, max_treedepth = 13),
+      seed    = 1708, refresh = 50,
+      save_pars = save_pars(all = TRUE)
+    )
+    saveRDS(m_cos_jud, .m_cos_jud_rds)
+  }
+
+  ## ---- LOO comparisons (vs respective baselines) ----
+  cat("\n# LOO: Binary baseline vs Binary <- Cosine\n")
+  print(loo_compare(loo(fit_bin), loo(m_bin_cos)))
+  cat("\n# LOO: Binary baseline vs Binary <- Judged\n")
+  print(loo_compare(loo(fit_bin), loo(m_bin_jud)))
+  cat("\n# LOO: Ordinal baseline vs Judged <- Cosine\n")
+  print(loo_compare(loo(fit_ord), loo(m_ord_cos)))
+  cat("\n# LOO: Cosine baseline vs Cosine <- Judged (ZOIB)\n")
+  print(loo_compare(loo(fit_cos), loo(m_cos_jud)))
+
+  ## ---- cleanup helpers (keep only model objects + r2_table + path vars) ----
+  rm(list = c(".pri_bin",".pri_ord",".pri_wide",
+              ".bin_rds",".ord_rds",".cos_rds",
+              ".m_ord_cos_rds",".m_bin_cos_rds",".m_bin_jud_rds",".m_cos_jud_rds"))
+}
+```
+
+Compromise to meet computational time.
+
+    -     We keep the 1’s from cosine similarity conceptually (they’re just ε below 1 for Beta math), preserving order and near-perfect matches. Also rescaling to true 0-1 range (not positively skewed with much higher mean due to the nature of cosine similarity scale).
+
+    -     All three outcomes are on comparable 0–1 scales (binary 0/1, judged 0–1, cosine ε-open (0,1)), so the per-stimulus posterior means can be min–max rescaled to overlay the three “landscapes” directly (same axis).
+      
+    -     Fast & robust: Bernoulli + Gaussian + Beta are far lighter than cumulative + ZOIB at N=27k, but they still answer the main question: the measures are related but not identical, visible in the differing shapes/ranks of stim_landscapes_scaled.
+    
+```{r}
+{
+  set.seed(1708)
+
+  ## ---------- ensure models dir exists ----------
+  if (!dir.exists(models)) dir.create(models, recursive = TRUE, showWarnings = FALSE)
+
+  ## ---------- data prep ----------
+  if (!"ord_norm" %in% names(df)) df$ord_norm <- df$judged_similarity / 3
+  df_brm <- df
+  df_brm$participant      <- factor(df_brm$participant)
+  df_brm$stimulus_concept <- factor(df_brm$stimulus_concept)
+
+  ## Keep info about exact 1s (for reporting the spike)
+  ones_table_stim <- aggregate(I(df_brm$cosine_rescaled == 1) ~ stimulus_concept, data = df_brm, FUN = mean)
+  names(ones_table_stim) <- c("stimulus_concept", "one_rate")
+
+  ## Cosine for modeling:
+  ## 1) tiny nudge to open interval (preserve order)
+  eps  <- 1e-10
+  tiny <- 1e-12
+  x    <- df_brm$cosine_rescaled
+  x_open <- pmin(pmax(x - eps, tiny), 1 - tiny)
+
+  ## 2) min–max stretch to [0,1] (use observed min/max), then open again
+  xmin <- min(x_open, na.rm = TRUE)
+  xmax <- max(x_open, na.rm = TRUE)
+  span <- xmax - xmin
+  if (!is.finite(span) || span <= 0) stop("Cosine has zero span after opening; cannot min–max scale.")
+  x_unit <- (x_open - xmin) / span
+  df_brm$cosine_unit_open <- pmin(pmax(x_unit, tiny), 1 - tiny)
+
+  ## ---------- very wide priors (intercepts + RE sd only) ----------
+  .pri_intercepts_only <- c(
+    set_prior("normal(0, 5)", class = "Intercept"),
+    set_prior("student_t(3, 0, 5)", class = "sd")
+  )
+
+  ## =================================================================
+  ##                           BASELINES
+  ## =================================================================
+
+  ## 1) BINARY (Bernoulli) — reuse if already run
+  .bin_rds <- file.path(models, "fit_bin.rds")
+  if (file.exists(.bin_rds)) {
+    fit_bin <- readRDS(.bin_rds)
+  } else {
+    fit_bin <- brm(
+      binary_guess ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
+      data    = df_brm,
+      family  = bernoulli(),
+      prior   = .pri_intercepts_only,
+      chains  = 4, iter = 4000, warmup = 2000,
+      control = list(adapt_delta = 0.97, max_treedepth = 12),
+      seed    = 1708, refresh = 100,
+      save_pars = save_pars(all = TRUE)
+    )
+    saveRDS(fit_bin, .bin_rds)
+  }
+
+  ## 2) JUDGED (fast): treat 0..3 as continuous 0–1 (Gaussian)
+  .ord_rds <- file.path(models, "fit_ord_gauss.rds")
+  if (file.exists(.ord_rds)) {
+    fit_ord_gauss <- readRDS(.ord_rds)
+  } else {
+    fit_ord_gauss <- brm(
+      ord_norm ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
+      data    = df_brm,
+      family  = gaussian(),
+      prior   = .pri_intercepts_only,
+      chains  = 4, iter = 4000, warmup = 2000,
+      control = list(adapt_delta = 0.95, max_treedepth = 12),
+      seed    = 1708, refresh = 100,
+      save_pars = save_pars(all = TRUE)
+    )
+    saveRDS(fit_ord_gauss, .ord_rds)
+  }
+
+  ## 3) COSINE (fast): Beta mixed model on unit-stretched (0,1) cosine
+  .cos_rds <- file.path(models, "fit_cos_beta_unit.rds")
+  if (file.exists(.cos_rds)) {
+    fit_cos_beta <- readRDS(.cos_rds)
+  } else {
+    fit_cos_beta <- brm(
+      cosine_unit_open ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
+      data    = df_brm,
+      family  = Beta(),
+      prior   = .pri_intercepts_only,
+      chains  = 4, iter = 4000, warmup = 2000,
+      control = list(adapt_delta = 0.95, max_treedepth = 12),
+      seed    = 1708, refresh = 100,
+      save_pars = save_pars(all = TRUE)
+    )
+    saveRDS(fit_cos_beta, .cos_rds)
+  }
+
+  ## ---------- Compact Bayes R^2 ----------
+  .r2 <- function(fit) { r <- bayes_R2(fit); c(Estimate = mean(r), Q2.5 = quantile(r,.025), Q97.5 = quantile(r,.975)) }
+  r2_table_fast <- data.frame(
+    model = c("Binary (Bernoulli)", "Judged (Gaussian 0–1)", "Cosine (Beta, unit-stretched)"),
+    t(rbind(.r2(fit_bin), .r2(fit_ord_gauss), .r2(fit_cos_beta)))
+  )
+  rownames(r2_table_fast) <- NULL
+  r2_table_fast$Estimate <- round(r2_table_fast$Estimate, 3)
+  r2_table_fast$Q2.5     <- round(r2_table_fast$Q2.5, 3)
+  r2_table_fast$Q97.5    <- round(r2_table_fast$Q97.5, 3)
+  print(r2_table_fast)
+
+  ## =================================================================
+  ##  Per-stimulus posterior means + min–max for visual comparability
+  ## =================================================================
+  stim_levels <- levels(df_brm$stimulus_concept)
+
+  # Binary: posterior mean per stimulus
+  bin_stim <- tibble::tibble(stimulus_concept = stim_levels) |>
+    dplyr::bind_cols(as.data.frame(fitted(fit_bin, re_formula = ~(1|s|stimulus_concept), summary = TRUE))) |>
+    dplyr::transmute(stimulus_concept, bin_mean = Estimate)
+
+  # Judged (Gaussian): posterior mean per stimulus
+  ord_stim <- tibble::tibble(stimulus_concept = stim_levels) |>
+    dplyr::bind_cols(as.data.frame(fitted(fit_ord_gauss, re_formula = ~(1|s|stimulus_concept), summary = TRUE))) |>
+    dplyr::transmute(stimulus_concept, ord_mean = Estimate)
+
+  # Cosine (Beta): posterior mean per stimulus
+  cos_stim <- tibble::tibble(stimulus_concept = stim_levels) |>
+    dplyr::bind_cols(as.data.frame(fitted(fit_cos_beta, re_formula = ~(1|s|stimulus_concept), summary = TRUE))) |>
+    dplyr::transmute(stimulus_concept, cos_mean = Estimate)
+
+  stim_landscapes <- bin_stim |>
+    dplyr::left_join(ord_stim, by = "stimulus_concept") |>
+    dplyr::left_join(cos_stim, by = "stimulus_concept") |>
+    dplyr::left_join(ones_table_stim, by = "stimulus_concept")  # keep spike info
+
+  # Min–max rescale summaries for plotting on same axis (does not affect models)
+  mm <- function(v) (v - min(v, na.rm = TRUE)) / (max(v, na.rm = TRUE) - min(v, na.rm = TRUE))
+  stim_landscapes_scaled <- stim_landscapes |>
+    dplyr::mutate(
+      bin_mm = mm(bin_mean),
+      ord_mm = mm(ord_mean),
+      cos_mm = mm(cos_mean)
+    )
+
+  # keep the useful things
+  assign("fit_bin", fit_bin, inherits = FALSE)
+  assign("fit_ord_gauss", fit_ord_gauss, inherits = FALSE)
+  assign("fit_cos_beta", fit_cos_beta, inherits = FALSE)
+  assign("r2_table_fast", r2_table_fast, inherits = FALSE)
+  assign("stim_landscapes", stim_landscapes, inherits = FALSE)
+  assign("stim_landscapes_scaled", stim_landscapes_scaled, inherits = FALSE)
+
+  ## ---------- cleanup helpers ----------
+  rm(.pri_intercepts_only, .bin_rds, .ord_rds, .cos_rds, .r2,
+     ones_table_stim, x, x_open, x_unit, eps, tiny, xmin, xmax, span, stim_levels, mm)
+}
+```
+
+
+# Session info
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+sessionInfo()
+```
