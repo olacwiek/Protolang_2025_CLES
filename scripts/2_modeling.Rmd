@@ -470,7 +470,7 @@ Full solution. (It will take days.)
   .r2 <- function(fit) { r <- bayes_R2(fit); c(Estimate = mean(r), Q2.5 = quantile(r,.025), Q97.5 = quantile(r,.975)) }
   r2_table <- data.frame(
     model = c("Binary (Bernoulli)", "Judged (Ordinal)", "Cosine (ZOIB)"),
-    t(rbind(.r2(fit_bin), .r2(fit_ord), .r2(fit_cos)))
+    rbind(.r2(fit_bin), .r2(fit_ord), .r2(fit_cos))
   )
   rownames(r2_table) <- NULL
   r2_table$Estimate <- round(r2_table$Estimate, 3)
@@ -587,153 +587,161 @@ Compromise to meet computational time.
   ## ---------- ensure models dir exists ----------
   if (!dir.exists(models)) dir.create(models, recursive = TRUE, showWarnings = FALSE)
 
-  ## ---------- data prep ----------
-  if (!"ord_norm" %in% names(df)) df$ord_norm <- df$judged_similarity / 3
-  df_brm <- df
-  df_brm$participant      <- factor(df_brm$participant)
-  df_brm$stimulus_concept <- factor(df_brm$stimulus_concept)
+  ## ---------- COMPLETE-CASE DATA (based on cosine) ----------
+  # Rationale: use the same rows for all three outcomes to enable direct comparability
+  df_cc <- subset(df, !is.na(cosine_rescaled))
+  if (!"ord_norm" %in% names(df_cc)) df_cc$ord_norm <- df_cc$judged_similarity / 3
 
-  ## Keep info about exact 1s (for reporting the spike)
-  ones_table_stim <- aggregate(I(df_brm$cosine_rescaled == 1) ~ stimulus_concept, data = df_brm, FUN = mean)
+  df_cc$participant      <- factor(df_cc$participant)
+  df_cc$stimulus_concept <- factor(df_cc$stimulus_concept)
+
+  ## Keep exact-1 spike info for reporting (from original column but CC rows)
+  ones_table_stim <- aggregate(I(df_cc$cosine_rescaled == 1) ~ stimulus_concept, data = df_cc, FUN = mean)
   names(ones_table_stim) <- c("stimulus_concept", "one_rate")
 
-  ## Cosine for modeling:
-  ## 1) tiny nudge to open interval (preserve order)
+  ## ---------- Cosine transform: epsilon-open + unit-stretch ----------
   eps  <- 1e-10
   tiny <- 1e-12
-  x    <- df_brm$cosine_rescaled
+  x    <- df_cc$cosine_rescaled
   x_open <- pmin(pmax(x - eps, tiny), 1 - tiny)
+  xmin <- min(x_open, na.rm = TRUE); xmax <- max(x_open, na.rm = TRUE); span <- xmax - xmin
+  if (!is.finite(span) || span <= 0) stop("Cosine span after opening is zero; cannot scale.")
+  df_cc$cosine_unit_open <- pmin(pmax((x_open - xmin) / span, tiny), 1 - tiny)
 
-  ## 2) min–max stretch to [0,1] (use observed min/max), then open again
-  xmin <- min(x_open, na.rm = TRUE)
-  xmax <- max(x_open, na.rm = TRUE)
-  span <- xmax - xmin
-  if (!is.finite(span) || span <= 0) stop("Cosine has zero span after opening; cannot min–max scale.")
-  x_unit <- (x_open - xmin) / span
-  df_brm$cosine_unit_open <- pmin(pmax(x_unit, tiny), 1 - tiny)
-
-  ## ---------- very wide priors (intercepts + RE sd only) ----------
+  ## ---------- very wide priors (intercept + RE sd only) ----------
   .pri_intercepts_only <- c(
     set_prior("normal(0, 5)", class = "Intercept"),
     set_prior("student_t(3, 0, 5)", class = "sd")
   )
 
   ## =================================================================
-  ##                           BASELINES
+  ##                           BASELINES (fast, CC)
   ## =================================================================
+  ctrl_strict <- list(adapt_delta = 0.99, max_treedepth = 13)
 
-  ## 1) BINARY (Bernoulli) — reuse if already run
-  .bin_rds <- file.path(models, "fit_bin.rds")
-  if (file.exists(.bin_rds)) {
-    fit_bin <- readRDS(.bin_rds)
+  ## 1) Binary (Bernoulli) on df_cc
+  .bin_cc_rds <- file.path(models, "fit_bin_cc.rds")
+  if (file.exists(.bin_cc_rds)) {
+    fit_bin_cc <- readRDS(.bin_cc_rds)
   } else {
-    fit_bin <- brm(
+    fit_bin_cc <- brm(
       binary_guess ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
-      data    = df_brm,
+      data    = df_cc,
       family  = bernoulli(),
       prior   = .pri_intercepts_only,
-      chains  = 4, iter = 4000, warmup = 2000,
-      control = list(adapt_delta = 0.97, max_treedepth = 12),
+      chains  = 4, iter = 8000, warmup = 4000,
+      control = ctrl_strict,
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
     )
-    saveRDS(fit_bin, .bin_rds)
+    saveRDS(fit_bin_cc, .bin_cc_rds)
   }
 
-  ## 2) JUDGED (fast): treat 0..3 as continuous 0–1 (Gaussian)
-  .ord_rds <- file.path(models, "fit_ord_gauss.rds")
-  if (file.exists(.ord_rds)) {
-    fit_ord_gauss <- readRDS(.ord_rds)
+  ## 2) Judged (Gaussian 0–1) on df_cc
+  .ord_cc_rds <- file.path(models, "fit_ord_gauss_cc.rds")
+  if (file.exists(.ord_cc_rds)) {
+    fit_ord_gauss_cc <- readRDS(.ord_cc_rds)
   } else {
-    fit_ord_gauss <- brm(
+    fit_ord_gauss_cc <- brm(
       ord_norm ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
-      data    = df_brm,
+      data    = df_cc,
       family  = gaussian(),
       prior   = .pri_intercepts_only,
-      chains  = 4, iter = 4000, warmup = 2000,
-      control = list(adapt_delta = 0.95, max_treedepth = 12),
+      chains  = 4, iter = 8000, warmup = 4000,
+      control = ctrl_strict,
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
     )
-    saveRDS(fit_ord_gauss, .ord_rds)
+    saveRDS(fit_ord_gauss_cc, .ord_cc_rds)
   }
 
-  ## 3) COSINE (fast): Beta mixed model on unit-stretched (0,1) cosine
-  .cos_rds <- file.path(models, "fit_cos_beta_unit.rds")
-  if (file.exists(.cos_rds)) {
-    fit_cos_beta <- readRDS(.cos_rds)
+  ## 3) Cosine (Beta on unit-stretched) on df_cc
+  .cos_cc_rds <- file.path(models, "fit_cos_beta_unit_cc.rds")
+  if (file.exists(.cos_cc_rds)) {
+    fit_cos_beta_cc <- readRDS(.cos_cc_rds)
   } else {
-    fit_cos_beta <- brm(
+    fit_cos_beta_cc <- brm(
       cosine_unit_open ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
-      data    = df_brm,
+      data    = df_cc,
       family  = Beta(),
       prior   = .pri_intercepts_only,
-      chains  = 4, iter = 4000, warmup = 2000,
-      control = list(adapt_delta = 0.95, max_treedepth = 12),
+      chains  = 4, iter = 8000, warmup = 4000,
+      control = ctrl_strict,
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
     )
-    saveRDS(fit_cos_beta, .cos_rds)
+    saveRDS(fit_cos_beta_cc, .cos_cc_rds)
   }
 
-  ## ---------- Compact Bayes R^2 ----------
-  .r2 <- function(fit) { r <- bayes_R2(fit); c(Estimate = mean(r), Q2.5 = quantile(r,.025), Q97.5 = quantile(r,.975)) }
-  r2_table_fast <- data.frame(
-    model = c("Binary (Bernoulli)", "Judged (Gaussian 0–1)", "Cosine (Beta, unit-stretched)"),
-    t(rbind(.r2(fit_bin), .r2(fit_ord_gauss), .r2(fit_cos_beta)))
+  ## ================== ROBUST R² TABLE (CC) ==================
+  .r2_summ <- function(fit) {
+    r <- bayes_R2(fit)
+    c(Estimate = mean(r), `Q2.5` = as.numeric(quantile(r, .025)), `Q97.5` = as.numeric(quantile(r, .975)))
+  }
+  r2_table_cc <- data.frame(
+    model    = c("Binary (Bernoulli, CC)", "Judged (Gaussian 0–1, CC)", "Cosine (Beta, unit-stretched, CC)"),
+    rbind(.r2_summ(fit_bin_cc), .r2_summ(fit_ord_gauss_cc), .r2_summ(fit_cos_beta_cc)),
+    row.names = NULL,
+    check.names = FALSE
   )
-  rownames(r2_table_fast) <- NULL
-  r2_table_fast$Estimate <- round(r2_table_fast$Estimate, 3)
-  r2_table_fast$Q2.5     <- round(r2_table_fast$Q2.5, 3)
-  r2_table_fast$Q97.5    <- round(r2_table_fast$Q97.5, 3)
-  print(r2_table_fast)
+  r2_table_cc$Estimate <- round(as.numeric(r2_table_cc$Estimate), 3)
+  r2_table_cc$`Q2.5`   <- round(as.numeric(r2_table_cc$`Q2.5`),   3)
+  r2_table_cc$`Q97.5`  <- round(as.numeric(r2_table_cc$`Q97.5`),  3)
+  print(r2_table_cc)
 
-  ## =================================================================
-  ##  Per-stimulus posterior means + min–max for visual comparability
-  ## =================================================================
-  stim_levels <- levels(df_brm$stimulus_concept)
+  ## ================== PER-STIMULUS POSTERIOR MEANS (CC) ==================
+  stim_levels_cc <- levels(df_cc$stimulus_concept)
+  new_stim_cc <- data.frame(stimulus_concept = stim_levels_cc)
 
-  # Binary: posterior mean per stimulus
-  bin_stim <- tibble::tibble(stimulus_concept = stim_levels) |>
-    dplyr::bind_cols(as.data.frame(fitted(fit_bin, re_formula = ~(1|s|stimulus_concept), summary = TRUE))) |>
-    dplyr::transmute(stimulus_concept, bin_mean = Estimate)
+  # Binary: marginal over participant; keep only stimulus RE
+  bin_pred <- as.data.frame(
+    fitted(fit_bin_cc, newdata = new_stim_cc, re_formula = ~(1|s|stimulus_concept), summary = TRUE)
+  )
+  bin_stim <- data.frame(stimulus_concept = stim_levels_cc, bin_mean = bin_pred$Estimate)
 
-  # Judged (Gaussian): posterior mean per stimulus
-  ord_stim <- tibble::tibble(stimulus_concept = stim_levels) |>
-    dplyr::bind_cols(as.data.frame(fitted(fit_ord_gauss, re_formula = ~(1|s|stimulus_concept), summary = TRUE))) |>
-    dplyr::transmute(stimulus_concept, ord_mean = Estimate)
+  # Judged (Gaussian)
+  ord_pred <- as.data.frame(
+    fitted(fit_ord_gauss_cc, newdata = new_stim_cc, re_formula = ~(1|s|stimulus_concept), summary = TRUE)
+  )
+  ord_stim <- data.frame(stimulus_concept = stim_levels_cc, ord_mean = ord_pred$Estimate)
 
-  # Cosine (Beta): posterior mean per stimulus
-  cos_stim <- tibble::tibble(stimulus_concept = stim_levels) |>
-    dplyr::bind_cols(as.data.frame(fitted(fit_cos_beta, re_formula = ~(1|s|stimulus_concept), summary = TRUE))) |>
-    dplyr::transmute(stimulus_concept, cos_mean = Estimate)
+  # Cosine (Beta)
+  cos_pred <- as.data.frame(
+    fitted(fit_cos_beta_cc, newdata = new_stim_cc, re_formula = ~(1|s|stimulus_concept), summary = TRUE)
+  )
+  cos_stim <- data.frame(stimulus_concept = stim_levels_cc, cos_mean = cos_pred$Estimate)
 
-  stim_landscapes <- bin_stim |>
-    dplyr::left_join(ord_stim, by = "stimulus_concept") |>
-    dplyr::left_join(cos_stim, by = "stimulus_concept") |>
-    dplyr::left_join(ones_table_stim, by = "stimulus_concept")  # keep spike info
+  # Merge + add spike info (computed on CC rows)
+  suppressWarnings({
+    stim_landscapes_cc <- dplyr::left_join(bin_stim, ord_stim, by = "stimulus_concept") |>
+      dplyr::left_join(cos_stim, by = "stimulus_concept") |>
+      dplyr::left_join(ones_table_stim, by = "stimulus_concept")
+  })
 
-  # Min–max rescale summaries for plotting on same axis (does not affect models)
+  # Min–max rescale summaries (for plotting; does not affect models)
   mm <- function(v) (v - min(v, na.rm = TRUE)) / (max(v, na.rm = TRUE) - min(v, na.rm = TRUE))
-  stim_landscapes_scaled <- stim_landscapes |>
-    dplyr::mutate(
-      bin_mm = mm(bin_mean),
-      ord_mm = mm(ord_mean),
-      cos_mm = mm(cos_mean)
-    )
+  stim_landscapes_cc_scaled <- transform(
+    stim_landscapes_cc,
+    bin_mm = mm(bin_mean),
+    ord_mm = mm(ord_mean),
+    cos_mm = mm(cos_mean)
+  )
 
-  # keep the useful things
-  assign("fit_bin", fit_bin, inherits = FALSE)
-  assign("fit_ord_gauss", fit_ord_gauss, inherits = FALSE)
-  assign("fit_cos_beta", fit_cos_beta, inherits = FALSE)
-  assign("r2_table_fast", r2_table_fast, inherits = FALSE)
-  assign("stim_landscapes", stim_landscapes, inherits = FALSE)
-  assign("stim_landscapes_scaled", stim_landscapes_scaled, inherits = FALSE)
+  ## ---------- keep useful objects ----------
+  assign("df_cc", df_cc, inherits = FALSE)
+  assign("fit_bin_cc", fit_bin_cc, inherits = FALSE)
+  assign("fit_ord_gauss_cc", fit_ord_gauss_cc, inherits = FALSE)
+  assign("fit_cos_beta_cc", fit_cos_beta_cc, inherits = FALSE)
+  assign("r2_table_cc", r2_table_cc, inherits = FALSE)
+  assign("stim_landscapes_cc", stim_landscapes_cc, inherits = FALSE)
+  assign("stim_landscapes_cc_scaled", stim_landscapes_cc_scaled, inherits = FALSE)
 
   ## ---------- cleanup helpers ----------
-  rm(.pri_intercepts_only, .bin_rds, .ord_rds, .cos_rds, .r2,
-     ones_table_stim, x, x_open, x_unit, eps, tiny, xmin, xmax, span, stim_levels, mm)
+  rm(.pri_intercepts_only, .bin_cc_rds, .ord_cc_rds, .cos_cc_rds, .r2_summ,
+     stim_levels_cc, new_stim_cc, bin_pred, ord_pred, cos_pred, mm,
+     ones_table_stim, eps, tiny, x, x_open, xmin, xmax, span, ctrl_strict)
 }
+
 ```
 
 
