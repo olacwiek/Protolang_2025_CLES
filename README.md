@@ -1,4 +1,4 @@
-# Experiments in Language Evolution: Closed vs Open-Ended Semantic Space Paradigms
+# Closed vs Open-Ended Semantic Space
 
 This repository contains data, code, and analysis scripts for a study on how participants interpret novel vocalizations when given **free-text responses** instead of multiple-choice options.  
 
