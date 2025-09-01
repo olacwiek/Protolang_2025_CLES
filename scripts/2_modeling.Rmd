@@ -31,29 +31,61 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Introduction
+# What this document does
 
-**Experiments in language evolution: inferences from closed- vs open-ended semantic space paradigms**
+**Purpose.** This notebook fits and evaluates **baseline hierarchical
+models** for three outcome measures that capture how well participants’
+free-text responses match target concepts:
 
-Svetlana Kuleshova\*1,2, Stefan Hartmann3, and Michael Pleyer1, Marta
-Sibierska1, Johan Blomberg4, Przemysław Żywiczyński1, Aleksandra
-Ćwiek5,1, Sławomir Wacewicz1
+1.  `binary_guess` — whether the response was judged exact/near-exact
+    (yes/no),
 
-\*Corresponding Author: 40010189\@parisnanterre.fr
+2.  `judged_similarity` — coder-assigned similarity on a four-point
+    scale,
 
-1Nicolaus Copernicus University in Toruń, Center for Language Evolution
-Studies, Fosa Staromiejska 3, 87-100 Toruń, Poland.
+3.  `cosine_rescaled` — automatic cosine similarity (ConceptNet,
+    rescaled to [0,1]).
 
-2ArScAn-Équipe AnTET (UMR 7041), CNRS, Université Paris Nanterre, 21
-Allée de l'Université, 92000, Nanterre, France.
+Each outcome is analyzed separately. We summarize posterior
+distributions, report Bayesian R², and check convergence/diagnostics.
 
-3Heinrich Heine University Düsseldorf, Faculty of Arts and Humanities,
-Universitätsstraße 1, 40225 Düsseldorf, Germany.
+**Inputs.** One cleaned, analysis-ready dataset from `1_preparation.Rmd`
+(`data/final_df.csv`), containing participant IDs, stimulus/concept IDs,
+language, and the three outcome measures.
 
-4Stockholm University, Department of Swedish and Multilingualism.
-Universitetsvägen 10, 106 91 Stockholm.
+**Outputs.**
 
-5Leibniz-Centre General Linguistics, Berlin, 10719, Germany
+-   Cached fitted models in `models/` (RDS files).
+
+-   Summary tables (posterior means/HDIs, random-effect SDs, Bayesian
+    R²).
+
+-   Diagnostic plots and posterior predictive checks.
+
+-   Figures saved to `plots/2_modeling/` (auto-saved with stable
+    numbering).
+
+# Abstract
+
+**Experiments in language evolution: inferences from closed- vs
+open-ended semantic space paradigms**
+
+Svetlana Kuleshova^\*1,2,^ Stefan Hartmann^3^, and Michael Pleyer^1^,
+Marta Sibierska^1^, Johan Blomberg^4^, Przemysław Żywiczyński^1^,
+Aleksandra Ćwiek^5,1^, Sławomir Wacewicz^1^
+
+^\*^Corresponding Author:
+[40010189\@parisnanterre.fr](mailto:40010189@parisnanterre.fr)
+
+^1^Nicolaus Copernicus University in Toruń, Center for Language
+Evolution Studies, Fosa Staromiejska 3, 87-100 Toruń, Poland.\
+^2^ArScAn-Équipe AnTET (UMR 7041), CNRS, Université Paris Nanterre, 21
+Allée de l'Université, 92000, Nanterre, France.\
+^3^Heinrich Heine University Düsseldorf, Faculty of Arts and Humanities,
+Universitätsstraße 1, 40225 Düsseldorf, Germany.\
+^4^Stockholm University, Department of Swedish and Multilingualism.
+Universitetsvägen 10, 106 91 Stockholm.\
+^5^Leibniz-Centre General Linguistics, Berlin, 10719, Germany
 
 We challenge the validity of the multiple-choice paradigm used in many
 communication experiments. We replicated two experiments and replaced
@@ -282,7 +314,6 @@ bf_bic <- function(y, x){
 }
 ```
 
-
 ## Load in data frames
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
@@ -323,8 +354,8 @@ pearson_tbl <- tibble(
 )
 ```
 
-Bayesian correlations via BayesFactor
-(Point-biserial is just Pearson on numeric 0/1; we still get Bayesian posterior for rho.)
+Bayesian correlations via BayesFactor (Point-biserial is just Pearson on
+numeric 0/1; we still get Bayesian posterior for rho.)
 
 ```{r}
 post_cos_jud <- bb_corr(dat_cor$cosine, dat_cor$judged, R = 8000, seed = 1708)
@@ -348,8 +379,9 @@ bind_rows(
   geom_vline(xintercept = 0, linetype = 2)
 ```
 
-BIC-approx Bayes factors for "correlation != 0"
-For continuous-continuous: linear model; for (cont ~ binary): also linear is fine here.
+BIC-approx Bayes factors for "correlation != 0" For
+continuous-continuous: linear model; for (cont \~ binary): also linear
+is fine here.
 
 ```{r}
 BF_cos_jud <- bf_bic(dat_cor$cosine, dat_cor$judged)
@@ -372,9 +404,29 @@ pearson_tbl %>%
 
 # Modeling
 
+## What we model
+
+-   **Binary accuracy**: `binary_guess ∈ {0,1}`, modeled with a
+    **Bernoulli** distribution and logit link.
+
+-   **Ordinal judgments**: `judged_similarity ∈ {0,1,2,3}`, modeled with
+    a **cumulative logit (ordinal)** likelihood.
+
+-   **Cosine similarity**: `cosine_rescaled ∈ [0,1]`, modeled with a
+    **zero-one-inflated Beta (ZOIB)** or a simpler **Beta** after
+    applying an ε-open transform to handle boundary values.
+
+All models include varying intercepts for participants and stimuli to
+account for individual and item-level heterogeneity.
+
 ## Full (not implemented)
 
-We first fit baseline models for each of the three measures, with only random intercepts for participant, native language, and stimulus. After baselines we’ll add cross-measure “coupling” models to test how measures relate (but aren’t identical), compare by LOO (and optionally Bayes factors via bridgesampling), and extract posteriors that demonstrate distinct yet overlapping semantic landscapes.
+We first fit baseline models for each of the three measures, with only
+random intercepts for participant, native language, and stimulus. After
+baselines we’ll add cross-measure “coupling” models to test how measures
+relate (but aren’t identical), compare by LOO (and optionally Bayes
+factors via bridgesampling), and extract posteriors that demonstrate
+distinct yet overlapping semantic landscapes.
 
 Full solution. (It will take days.)
 
@@ -579,12 +631,28 @@ Full solution. (It will take days.)
 
 Compromise to meet computational time.
 
-    -     We keep the 1’s from cosine similarity conceptually (they’re just ε below 1 for Beta math), preserving order and near-perfect matches. Also rescaling to true 0-1 range (not positively skewed with much higher mean due to the nature of cosine similarity scale).
+-   We keep the 1’s from cosine similarity conceptually (they’re just ε
+    below 1 for Beta math), preserving order and near-perfect matches.
+    Also rescaling to the true 0-1 range (not positively skewed with
+    much higher mean due to the nature of thecosine similarity scale).
 
-    -     All three outcomes are on comparable 0–1 scales (binary 0/1, judged 0–1, cosine ε-open (0,1)), so the per-stimulus posterior means can be min–max rescaled to overlay the three “landscapes” directly (same axis).
-      
-    -     Fast & robust: Bernoulli + Gaussian + Beta are far lighter than cumulative + ZOIB at N=27k, but they still answer the main question: the measures are related but not identical, visible in the differing shapes/ranks of stim_landscapes_scaled.
-    
+-   **All three outcomes on comparable 0–1 scales (binary 0/1, judged
+    0–1, cosine ε-open (0,1))**, so the per-stimulus posterior means can
+    be min–max rescaled to overlay the three “landscapes” directly (same
+    axis).
+
+-   Fast & robust: **Bernoulli + Gaussian + Beta** are far lighter than
+    cumulative + ZOIB at N=25k, but they still answer the main question:
+    the measures are related but not identical, visible in the differing
+    shapes/ranks of stim_landscapes_scaled.
+
+-   **Priors:** Weakly informative on intercepts and group-level SDs
+    (stabilize estimates, avoid overfitting).
+
+-    **Sampling:** 4 chains, 8000 iterations (4000 warmup), with
+    `adapt_delta = 0.98–0.99` and `max_treedepth = 12–13` for
+    robustness.
+
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 {
   set.seed(1708)
@@ -639,7 +707,7 @@ Compromise to meet computational time.
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
     )
-    saveRDS(fit_bin_cc, .bin_cc_rds)
+    saveRDS(fit_bin_cc, .bin_cc_rds, compress = "xz")
   }
 
   ## 2) Judged (Gaussian 0–1) on df_cc
@@ -657,7 +725,7 @@ Compromise to meet computational time.
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
     )
-    saveRDS(fit_ord_gauss_cc, .ord_cc_rds)
+    saveRDS(fit_ord_gauss_cc, .ord_cc_rds, compress = "xz")
   }
 
   ## 3) Cosine (Beta on unit-stretched) on df_cc
@@ -675,7 +743,7 @@ Compromise to meet computational time.
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
     )
-    saveRDS(fit_cos_beta_cc, .cos_cc_rds)
+    saveRDS(fit_cos_beta_cc, .cos_cc_rds, compress = "xz")
   }
 
   ## ================== ROBUST R² (cache to RDS) ==================
@@ -781,13 +849,16 @@ Compromise to meet computational time.
 
 ### Extract results
 
-Bayesian R² for each fitted model using bayes_R2(). This is a quick, comparable goodness-of-fit summary.
+Bayesian R² for each fitted model using bayes_R2(). This is a quick,
+comparable goodness-of-fit summary.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 r2_table_cc
 ```
 
-Posterior predictive checks for all three models, shown side-by-side for quick visual comparison. If patchwork is available we combine them horizontally; otherwise they will print one after another. No captions, so nothing gets copied out by your hook.
+Posterior predictive checks for all three models, shown side-by-side for
+quick visual comparison. If patchwork is available we combine them
+horizontally; otherwise they will print one after another.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 suppressWarnings(has_patchwork <- requireNamespace("patchwork", quietly = TRUE))
@@ -805,11 +876,34 @@ if (has_patchwork) {
 
 ## Posteriors visualized
 
+Goal of this section:
+
+-   Extract posterior draws of the *population-level* mean (μ) for each
+    model, on the OUTCOME scale (probability for Bernoulli, 0–1 scale
+    for Gaussian/Beta).
+
+-   Summarize μ for each model (mean/median/95% CrI) for the manuscript
+    table.
+
+-   Compute pairwise posterior probabilities that one model’s μ exceeds
+    another, plus the posterior on their differences.
+
+Why re_formula = NA?
+
+It drops all random effects so we get the population-level intercept
+(μ), i.e., the grand mean across participants and stimuli on the outcome
+scale. We pass a single valid row from df_cc as 'newdata' just to anchor
+factor levels; with re_formula = NA that row's values don't affect μ.
+
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Descriptive posterior summaries for intercepts (μ) + pairwise probabilities
 
 # --- Helper: posterior draws of μ on outcome scale (drop all REs)
 .post_mu_draws <- function(fit, label, ref_row = 1) {
+  # We ask brms for the mean of the likelihood (fitted), not raw draws of y,
+  # and we want *all draws*, hence summary = FALSE.
+  # For Bernoulli this is P(Y=1); for Gaussian(0–1) it is the expected value;
+  # for Beta it is the expected mean on the 0–1 scale.
   mu <- fitted(fit, newdata = df_cc[ref_row, , drop = TRUE],
                re_formula = NA, summary = FALSE)
   tibble(model = label, mu = as.numeric(mu))
@@ -824,7 +918,10 @@ mu_draws <- bind_rows(
   mutate(model = factor(model,
                         levels = c("Binary guess", "Judged similarity", "Cosine similarity")))
 
-# --- Summary table for manuscript (median, mean, 95% CrI)
+# --- Manuscript-ready summary of μ (posterior mean, median, 95% CrI)
+# We summarize across posterior draws within each model. Numbers are on the
+# outcome scale, so the three μ's are directly comparable as "average level"
+# of each metric (e.g., average hit rate, average judged similarity 0–1, etc.).
 mu_summary <- mu_draws %>%
   group_by(model) %>%
   summarise(
@@ -852,8 +949,13 @@ mu_summary_print <- mu_summary %>%
 cat("\nIntercept (population mean μ on outcome scale) — posterior summaries:\n")
 knitr::kable(mu_summary_print, align = "lcccc")
 
-# --- Pairwise comparisons: P(mu_A > mu_B) & posterior for differences
-# We pair draws by random sampling to a common length for each comparison.
+# --- Pairwise comparisons between μ's
+# We compare the *same-iteration* scale (posterior draws) of the μ's across models.
+# For each pair we compute:
+#   - P(Second > First): posterior probability that μ_second exceeds μ_first
+#   - Posterior on the difference (Second - First): median and 95% CrI
+# Interpretation: This is *not* a null-hypothesis test; it’s a direct Bayesian
+# probability statement about contrasts of population means on the outcome scale.
 set.seed(1708)
 
 get_draws_for <- function(lbl) filter(mu_draws, model == lbl) %>% pull(mu)
@@ -862,6 +964,8 @@ d_bin  <- get_draws_for("Binary guess")
 d_judg <- get_draws_for("Judged similarity")
 d_cos  <- get_draws_for("Cosine similarity")
 
+# We align lengths by random pairing (if needed) to avoid recycling; this keeps
+# contrasts unbiased even if the upstream models had different numbers of draws.
 pair_prob <- function(x, y, n = 10000L) {
   n <- min(length(x), length(y), n)
   ix <- sample(seq_along(x), n, replace = length(x) < n)
@@ -884,6 +988,7 @@ cmp_list <- list(
 
 pairwise_summary <- bind_rows(cmp_list, .id = "Comparison")
 
+# Friendly printout
 pairwise_print <- pairwise_summary %>%
   mutate(
     across(c(diff_median, diff_q2.5, diff_q97.5), fmt_num),
@@ -905,7 +1010,6 @@ assign("mu_summary",  mu_summary,  inherits = FALSE)
 assign("pairwise_summary", pairwise_summary, inherits = FALSE)
 
 ```
-
 
 ```{r posterior means, echo=FALSE, fig.align='left', fig.cap=capFig("Posterior draws of the global mean (intercept on the outcome scale) for each model, plotted together in one figure."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
 # Intercept (population mean μ on outcome scale) — ordered plot
@@ -1054,8 +1158,7 @@ ggplot(part_means, aes(x = mean)) +
 ```{r boxplot participant, echo=FALSE, fig.align='left', fig.cap=capFig("Distribution of posterior means per participant, shown as boxplots for each outcome measure."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
 ggplot(part_means, aes(x = measure, y = mean, fill = measure)) +
   geom_boxplot(alpha = 0.6) +
-  labs(x = NULL, y = "Posterior mean μ [0–1]",
-       title = "Per-participant posterior means by measure") +
+  labs(x = NULL, y = "Posterior mean μ [0–1]") +
   theme_minimal(base_size = 12)
 
 
@@ -1117,15 +1220,24 @@ assign("stim_means_wide", stim_means_wide, inherits = FALSE)
 assign("subcat_wide", subcat_wide, inherits = FALSE)
 ```
 
-For each subcategory, show two horizontal contrasts on a common zero line: Judged − Binary (how much graded ratings exceed strict hits) and Cosine − Judged (how much distributional proximity exceeds human ratings). This makes the “landscape differences” explicit and comparable. Subcategories are sorted by Cosine − Judged so the eye immediately catches where distributional semantics adds the most.
+For each subcategory, show two horizontal contrasts on a common zero
+line: Judged − Binary (how much graded ratings exceed strict hits) and
+Cosine − Judged (how much distributional proximity exceeds human
+ratings). This makes the “landscape differences” explicit and
+comparable. Subcategories are sorted by Cosine − Judged so the eye
+immediately catches where distributional semantics adds the most.
 
-Judged − Binary > 0 → allowing graded human judgments uncovers structure ignored by exact hits.
+Judged − Binary \> 0 → allowing graded human judgments uncovers
+structure ignored by exact hits.
 
-Cosine − Judged > 0 → distributional proximity recognises neighborhood-level meaning beyond human “similarity” ratings.
+Cosine − Judged \> 0 → distributional proximity recognises
+neighborhood-level meaning beyond human “similarity” ratings.
 
-Both > 0 → a clear gradient: Binary < Judged < Cosine for that subcategory.
+Both \> 0 → a clear gradient: Binary \< Judged \< Cosine for that
+subcategory.
 
-Negative values (no such cases) → the earlier lens explains more than the later one.
+Negative values (no such cases) → the earlier lens explains more than
+the later one.
 
 ```{r map A, echo=FALSE, fig.align='left', fig.cap=capFig("Subcategory Advantage Grid. For each subcategory, the right-facing bar shows Cosine − Judged (distributional advantage) and the left/right bar shows Judged − Binary (graded advantage over exact hits). Bars to the right of zero indicate the second measure exceeds the first. Point size encodes the number of stimuli in the subcategory. Interpretation: where both bars are large and positive, free-text responses are captured poorly by binary hits but progressively better by human grading and best by distributional proximity."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
 adv_long <- subcat_wide %>%
@@ -1151,7 +1263,6 @@ ggplot(adv_long, aes(x = value, y = subcategory, color = contrast)) +
   labs(x = "Difference on μ (outcome scale)", y = NULL) +
   theme_minimal(base_size = 11)
 ```
-
 
 ```{r map B, echo=FALSE, fig.align='left', fig.cap=capFig("Semantic topography of similarity measures. The plot renders the difference between distributional (cosine) and human-judged similarity as a topographic surface in Judged (x) × Cosine (y) space. Blue “elevations” indicate regions where cosine similarity assigns higher values than human ratings, while red “depressions” show the reverse. The dashed line marks equality (Cos = Jud). Black-rimmed points are subcategory centroids, scaled by their Binary μ (proportion of exact matches). This visualization highlights how different measures carve out distinct semantic landscapes: binary exact hits are rare (small capitals), judged similarity introduces a gradient, and cosine expands the landscape further by capturing semantic neighborhoods beyond human ratings."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
 # --- ROBUST "Semantic Topography" (Cos − Jud) -------------------------------
@@ -1260,7 +1371,6 @@ if (has_repel) {
 print(p_topo)
 ```
 
-
 ```{r map C, echo=FALSE, fig.align='left', fig.cap=capFig("Each subcategory’s centroid in Judged (x) × Cosine (y) becomes a “capital.” We tessellate the plane into Voronoi regions, coloring each “country” by Cosine − Judged (blue = distributional advantage; red = judged advantage). Point size shows Binary μ (strict hits), and labels name the subcategories. The dashed 45° line marks equality. This gives a true map where borders reflect which centroid is closest; visually, you get semantic “territories” defined by graded measures, with color/topography conveying which lens is more permissive."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
 # --- MAP C: Voronoi "countries" in Judged × Cosine space --------------------
 suppressPackageStartupMessages({
@@ -1330,7 +1440,6 @@ if (has_force) {
 }
 
 ```
-
 
 # Session info
 

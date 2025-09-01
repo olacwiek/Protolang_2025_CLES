@@ -2,3 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# Model objects (too large for GitHub)
+models/*.rds
+models/*.RDS

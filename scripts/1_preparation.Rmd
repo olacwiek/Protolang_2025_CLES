@@ -31,29 +31,41 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Introduction
+# What this document does
 
-**Experiments in language evolution: inferences from closed- vs open-ended semantic space paradigms**
+**Purpose.** This notebook loads raw data (vocalizations/gestures
+metadata + ConceptNet similarities), cleans and harmonizes variable
+names/keys, and produces a single analysis-ready table used by
+`2_modeling.Rmd`.\
 
-Svetlana Kuleshova\*1,2, Stefan Hartmann3, and Michael Pleyer1, Marta
-Sibierska1, Johan Blomberg4, Przemysław Żywiczyński1, Aleksandra
-Ćwiek5,1, Sławomir Wacewicz1
+**Outputs.** (a) a cleaned CSV (`final_df.csv`) written to `data/`; (b)
+sanity-check summaries and quick plots saved under
+`plots/1_preparation/`.\
 
-\*Corresponding Author: 40010189\@parisnanterre.fr
+**Reproducibility.** All paths are relative, a fixed random seed is set,
+and package versions are recorded at the end.
 
-1Nicolaus Copernicus University in Toruń, Center for Language Evolution
-Studies, Fosa Staromiejska 3, 87-100 Toruń, Poland.
+# Abstract
 
-2ArScAn-Équipe AnTET (UMR 7041), CNRS, Université Paris Nanterre, 21
-Allée de l'Université, 92000, Nanterre, France.
+**Experiments in language evolution: inferences from closed- vs
+open-ended semantic space paradigms**
 
-3Heinrich Heine University Düsseldorf, Faculty of Arts and Humanities,
-Universitätsstraße 1, 40225 Düsseldorf, Germany.
+Svetlana Kuleshova^\*1,2,^ Stefan Hartmann^3^, and Michael Pleyer^1^,
+Marta Sibierska^1^, Johan Blomberg^4^, Przemysław Żywiczyński^1^,
+Aleksandra Ćwiek^5,1^, Sławomir Wacewicz^1^
 
-4Stockholm University, Department of Swedish and Multilingualism.
-Universitetsvägen 10, 106 91 Stockholm.
+^\*^Corresponding Author:
+[40010189\@parisnanterre.fr](mailto:40010189@parisnanterre.fr)
 
-5Leibniz-Centre General Linguistics, Berlin, 10719, Germany
+^1^Nicolaus Copernicus University in Toruń, Center for Language
+Evolution Studies, Fosa Staromiejska 3, 87-100 Toruń, Poland.\
+^2^ArScAn-Équipe AnTET (UMR 7041), CNRS, Université Paris Nanterre, 21
+Allée de l'Université, 92000, Nanterre, France.\
+^3^Heinrich Heine University Düsseldorf, Faculty of Arts and Humanities,
+Universitätsstraße 1, 40225 Düsseldorf, Germany.\
+^4^Stockholm University, Department of Swedish and Multilingualism.
+Universitetsvägen 10, 106 91 Stockholm.\
+^5^Leibniz-Centre General Linguistics, Berlin, 10719, Germany
 
 We challenge the validity of the multiple-choice paradigm used in many
 communication experiments. We replicated two experiments and replaced
@@ -146,10 +158,6 @@ models        <- paste0(parentfolder, '/models/')
 plots         <- paste0(parentfolder, '/plots/')
 scripts       <- paste0(parentfolder, '/scripts/')
 
-########## source file ##########
-
-#source(paste0(scripts, "adjectives-preparation.R"))
-
 #################### packages ####################
 # Core tidyverse for wrangling + plotting; janitor/skimr for quick structure checks; patchwork for combining plots
 library(tidyverse)
@@ -170,6 +178,10 @@ theme_set(theme_minimal(base_size = 12) + panel_border())
 colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                        "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
+
+**Auto-saving figures.** Each plot with `fig.cap` is copied to
+`plots/<Rmd-name>/Figure_XX.(png|tif)`. This guarantees stable filenames
+for papers, corresponding to figure numbers from the html.
 
 ```{r echo = TRUE, message=FALSE, warning = FALSE}
 # --- figure & table captions ---
@@ -232,6 +244,20 @@ knitr::knit_hooks$set(plot = function(x, options){
 
 ## Load in data frames
 
+-   `vocs.xlsx` — trial-level responses (free text), one row per
+    participant×stimulus.
+
+<!-- -->
+
+-   `all_metadata.xlsx` — stimulus metadata (concept, modality, etc.).
+
+-   `cosine_sim.csv` — ConceptNet cosine between response head and
+    target concept; first row is a header row from export and is
+    promoted to column names here.
+
+**Harmonization.** We `clean_names()` so joins are predictable; cosine
+is coerced to numeric after header fix.
+
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 vocs <- read_excel(paste0(data, "vocs.xlsx"))  %>% clean_names()
 meta <- read_excel(paste0(data, "all_metadata.xlsx"))  %>% clean_names()
@@ -243,6 +269,13 @@ cn$cosine_similarity <- as.numeric(cn$cosine_similarity)
 ```
 
 ## Clean and prep data frame
+
+**Cleaning & merges.** We standardize IDs (participant,
+stimulus_concept), derive analysis variables, and left-join ConceptNet
+scores on the response–target pair. We keep both the raw 4-point coder
+scale and a binary “exact/near-miss vs miss” to support multiple
+analysis lenses. Where coders disagreed, final labels reflect post-hoc
+adjudication.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 ## ---------- 1) Normalize vocs & cn ----------
@@ -431,13 +464,13 @@ rm(vocs_keys, cn_keys, vocs_fixed, meta_lang, meta_trials, per_trial_outliers,
 # df %>% filter(is.na(cosine_similarity)) %>% nrow()
 ```
 
-Check final df
+Check final df.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 skim(df)
 ```
 
-Rescale cosine similarity (from −1–1 to 0–1)
+Rescale cosine similarity (from −1–1 to 0–1).
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 df <- df %>%
@@ -456,7 +489,7 @@ df_bins <- df %>%
 
 # Descriptive statistics
 
-First sense of means and sd
+First sense of means and sd.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 df %>%
@@ -473,7 +506,7 @@ df %>%
   )
 ```
 
-Per-concept
+Per-concept.
 
 ```{r}
 df %>%
@@ -488,8 +521,7 @@ df %>%
   arrange(desc(mean_binary))
 ```
 
-
-Cross-tab of binary vs ordinal
+Cross-tab of binary vs ordinal.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 table(df$binary_guess, df$judged_similarity)
@@ -501,7 +533,6 @@ table(df$binary_guess, df$judged_similarity)
 # Seed for jitter
 set.seed(1708)
 ```
-
 
 ```{r distribution, echo=FALSE, fig.align='left', fig.cap=capFig("Distributions of each measure."), fig.height=5, fig.width=8, message=FALSE, warning=FALSE}
 p1 <- ggplot(df, aes(x=factor(binary_guess))) +
@@ -533,7 +564,7 @@ ggplot(df, aes(x=factor(judged_similarity), y=factor(binary_guess))) +
   labs(x="Ordinal rating", y="Binary")
 ```
 
----
+------------------------------------------------------------------------
 
 ```{r ECDF, echo=FALSE, fig.align='left', fig.cap=capFig("Empirical cumulative distributions of normalized ordinal similarity (0–1) and rescaled cosine similarity (0–1). The dashed horizontal line marks the overall proportion of binary successes. Differences between ECDFs indicate distinct partitioning of the response space by human ratings and computational similarity; the binary baseline shows how frequently the strict criterion is met."), fig.height=5, fig.width=7, message=FALSE, warning=FALSE}
 # Long form for ECDF overlay
@@ -551,9 +582,12 @@ ggplot(ecdf_dat, aes(value, colour = metric)) +
 
 ```
 
-If the cosine ECDF lies to the right of the ordinal ECDF, cosine assigns higher similarity more often; if left, it’s more conservative. The dashed line (binary mean) highlights how much graded signal exists below the strict “hit” rate.
+If the cosine ECDF lies to the right of the ordinal ECDF, cosine assigns
+higher similarity more often; if left, it’s more conservative. The
+dashed line (binary mean) highlights how much graded signal exists below
+the strict “hit” rate.
 
----
+------------------------------------------------------------------------
 
 ```{r Bland-Altman, echo=FALSE, fig.align='left', fig.cap=capFig("Bland–Altman plot comparing normalized ordinal similarity and rescaled cosine similarity: difference (ordinal − cosine) versus their mean. Solid line shows mean bias; dashed lines show ±1.96 SD limits of agreement. Systematic deviations from zero indicate directional disagreement; funneling suggests heteroscedasticity."), fig.height=5, fig.width=7, message=FALSE, warning=FALSE}
 ba <- df %>%
@@ -575,9 +609,11 @@ ggplot(ba, aes(mean_pair, diff_pair)) +
        y = "Difference (ordinal – cosine)")
 ```
 
-Points above zero mean humans rated higher than cosine; below zero means cosine outruns human ratings. If spread widens at higher means, the two measures diverge more for “more similar” responses.
+Points above zero mean humans rated higher than cosine; below zero means
+cosine outruns human ratings. If spread widens at higher means, the two
+measures diverge more for “more similar” responses.
 
----
+------------------------------------------------------------------------
 
 ```{r ordinal composition, echo=FALSE, fig.align='left', fig.cap=capFig("Stacked proportions of ordinal categories (0–3) across deciles of rescaled cosine similarity. Increasing shares of higher ordinal categories with higher cosine deciles indicate convergence between computational and human-graded similarity."), fig.height=5, fig.width=7, message=FALSE, warning=FALSE}
 ord_mix <- df_bins %>%
@@ -592,9 +628,11 @@ ggplot(ord_mix, aes(x = cos_decile, y = prop, fill = ord_f)) +
   theme(legend.position = "top")
 ```
 
-Watch the bars: if the “2” and “3” slices expand toward the right, cosine aligns with human-perceived similarity. Flat or noisy profiles imply weak alignment.
+Watch the bars: if the “2” and “3” slices expand toward the right,
+cosine aligns with human-perceived similarity. Flat or noisy profiles
+imply weak alignment.
 
----
+------------------------------------------------------------------------
 
 ```{r joint hexbin, echo=FALSE, fig.align='left', fig.cap=capFig("Joint distribution of rescaled cosine similarity and ordinal ratings, with the fitted logistic decision boundary for binary correctness (binary scaled to 0–3 for overlay). Kernel contours (or hexbin density) summarize mass in the graded space; the logistic curve indicates where responses cross into binary “correct.”"), fig.height=5, fig.width=7, message=FALSE, warning=FALSE}
 
@@ -620,9 +658,11 @@ ggplot(dat, aes(x = cosine_rescaled, y = judged_similarity)) +
        x = "Cosine (0–1)") 
 ```
 
-Dense regions at mid-to-high cosine and mid ordinal values reveal near-misses. The logistic curve shows the effective cosine threshold required for binary success.
+Dense regions at mid-to-high cosine and mid ordinal values reveal
+near-misses. The logistic curve shows the effective cosine threshold
+required for binary success.
 
----
+------------------------------------------------------------------------
 
 ```{r observed p vs cosine, echo=FALSE, fig.align='left', fig.cap=capFig("Observed probability of binary correctness as a function of binned cosine similarity. Points are sized by bin counts and colored by observed probability. The curve indicates how increases in computational similarity translate into strict success."), fig.height=5, fig.width=7, message=FALSE, warning=FALSE}
 cal <- df %>%
@@ -645,9 +685,11 @@ ggplot(cal, aes(x, p)) +
   labs(x = "Cosine (binned midpoints)", y = "Observed probability", size = "N", fill = "Pr(1)")
 ```
 
-Monotonic rise = good calibration; plateaus or step-like jumps indicate thresholds. Large, pale points with low p show regions with many attempts but low strict success.
+Monotonic rise = good calibration; plateaus or step-like jumps indicate
+thresholds. Large, pale points with low p show regions with many
+attempts but low strict success.
 
----
+------------------------------------------------------------------------
 
 ```{r precision-recall, echo=FALSE, fig.align='left', fig.cap=capFig("Precision–Recall curve using rescaled cosine similarity as a decision score for predicting binary correctness under class imbalance. Dashed horizontal line marks the baseline prevalence. Area under the PR curve (AUPRC) quantifies utility beyond prevalence."), fig.height=5, fig.width=7, message=FALSE, warning=FALSE}
 sc <- df %>% filter(!is.na(cosine_rescaled))
@@ -668,9 +710,11 @@ ggplot(pr_dat, aes(recall, precision)) +
        x = "Recall", y = "Precision") 
 ```
 
-If the PR curve stays well above the baseline, cosine is informative for the hard task. A rapid precision drop at higher recall signals many false positives among “near-similar” cases.
+If the PR curve stays well above the baseline, cosine is informative for
+the hard task. A rapid precision drop at higher recall signals many
+false positives among “near-similar” cases.
 
----
+------------------------------------------------------------------------
 
 ```{r near-miss quantification, echo=FALSE, fig.align='left', fig.cap=capFig("Proportions of responses that are binary failures (0) yet exceed a high-similarity threshold either in cosine (e.g., ≥ .70) or in ordinal ratings (≥ 2). Bars show the share of “discarded but semantically close” responses."), fig.height=5, fig.width=7, message=FALSE, warning=FALSE}
 nm <- df %>% filter(!is.na(cosine_rescaled)) %>%
@@ -694,9 +738,11 @@ ggplot(nm_long, aes(near_miss, frac)) +
        x = NULL, y = "Proportion of all responses")
 ```
 
-These are the cases the abstract cares about: they are wrong by the strict criterion but meaningfully similar by graded/computational measures. Higher bars = more nuance lost by binary.
+These are the cases the abstract cares about: they are wrong by the
+strict criterion but meaningfully similar by graded/computational
+measures. Higher bars = more nuance lost by binary.
 
----
+------------------------------------------------------------------------
 
 ```{r per-item slope, echo=FALSE, fig.align='left', fig.cap=capFig("For each stimulus concept, lines connect mean scores on Binary (proportion), Ordinal (normalized), and Cosine (rescaled). Line opacity encodes the within-item spread (max–min). Diverging trajectories indicate disagreement across measures at the item level."), fig.height=5, fig.width=7, message=FALSE, warning=FALSE}
 by_item_long <- df %>%
@@ -723,9 +769,11 @@ ggplot(by_item_long, aes(x, Value, group = stimulus_concept)) +
        x = NULL, y = NULL)
 ```
 
-Look for items whose lines climb from Binary to Ordinal/Cosine: these are systematically “rescued” by graded measures. Flat lines indicate consensus across metrics.
+Look for items whose lines climb from Binary to Ordinal/Cosine: these
+are systematically “rescued” by graded measures. Flat lines indicate
+consensus across metrics.
 
----
+------------------------------------------------------------------------
 
 ```{r hexbin binary, echo=FALSE, fig.align='left', fig.cap=capFig("Hexbin density of rescaled cosine similarity versus normalized ordinal similarity, with binary successes overlaid as open circles. Shading reflects observations per hexagon."), fig.height=5, fig.width=7, message=FALSE, warning=FALSE}
 base <- ggplot(df %>% filter(!is.na(cosine_rescaled)),
@@ -740,9 +788,11 @@ base + geom_point(data = subset(df, binary_guess == 1 & !is.na(cosine_rescaled))
                   shape = 1, size = 3, alpha = 0.6)
 ```
 
-If successes cluster at the upper-right, binary hits require both high cosine and high ordinal. Sparse, isolated success markers reveal “lucky hits” or boundary cases.
+If successes cluster at the upper-right, binary hits require both high
+cosine and high ordinal. Sparse, isolated success markers reveal “lucky
+hits” or boundary cases.
 
----
+------------------------------------------------------------------------
 
 ```{r disagreement, echo=FALSE, fig.align='left', fig.cap=capFig("Stimulus concepts ranked by absolute disagreement between mean normalized ordinal similarity and mean rescaled cosine similarity. Positive bars indicate higher human ratings than cosine; negative bars indicate higher cosine than human ratings."), fig.height=9, fig.width=6, message=FALSE, warning=FALSE}
 disc <- df %>%
@@ -763,9 +813,15 @@ ggplot(disc, aes(x = reorder(stimulus_concept, adiff), y = diff)) +
        x = NULL, y = "Difference (−=cosine higher, +=ordinal higher)")
 ```
 
-This is the case-study list. Positive extremes: humans perceive similarity that cosine underestimates (e.g., pragmatic or contextual ties). Negative extremes: cosine overestimates semantic closeness relative to human perception.
+This is the case-study list. Positive extremes: humans perceive
+similarity that cosine underestimates (e.g., pragmatic or contextual
+ties). Negative extremes: cosine overestimates semantic closeness
+relative to human perception.
 
 # Export df
+
+**Output.** We write a single analysis-ready CSV (`final_df.csv`)
+consumed by `2_modeling.Rmd`.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 write_csv(df, paste0(data, "final_df.csv"))

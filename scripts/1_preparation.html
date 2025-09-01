@@ -2853,28 +2853,47 @@ border-radius: 0px;
 inferences from closed- vs open-ended semantic space paradigms</h1>
 <h3 class="subtitle">Preparation</h3>
 <h4 class="author">analysis by Aleksandra Ćwiek</h4>
-<h4 class="date">28 August, 2025</h4>
+<h4 class="date">01 September, 2025</h4>
 
 </div>
 
 
-<div id="introduction" class="section level1" number="1">
-<h1><span class="header-section-number">1</span> Introduction</h1>
+<div id="what-this-document-does" class="section level1" number="1">
+<h1><span class="header-section-number">1</span> What this document
+does</h1>
+<p><strong>Purpose.</strong> This notebook loads raw data
+(vocalizations/gestures metadata + ConceptNet similarities), cleans and
+harmonizes variable names/keys, and produces a single analysis-ready
+table used by <code>2_modeling.Rmd</code>.<br />
+</p>
+<p><strong>Outputs.</strong> (a) a cleaned CSV
+(<code>final_df.csv</code>) written to <code>data/</code>; (b)
+sanity-check summaries and quick plots saved under
+<code>plots/1_preparation/</code>.<br />
+</p>
+<p><strong>Reproducibility.</strong> All paths are relative, a fixed
+random seed is set, and package versions are recorded at the end.</p>
+</div>
+<div id="abstract" class="section level1" number="2">
+<h1><span class="header-section-number">2</span> Abstract</h1>
 <p><strong>Experiments in language evolution: inferences from closed- vs
 open-ended semantic space paradigms</strong></p>
-<p>Svetlana Kuleshova*1,2, Stefan Hartmann3, and Michael Pleyer1, Marta
-Sibierska1, Johan Blomberg4, Przemysław Żywiczyński1, Aleksandra
-Ćwiek5,1, Sławomir Wacewicz1</p>
-<p>*Corresponding Author: 40010189@parisnanterre.fr</p>
-<p>1Nicolaus Copernicus University in Toruń, Center for Language
-Evolution Studies, Fosa Staromiejska 3, 87-100 Toruń, Poland.</p>
-<p>2ArScAn-Équipe AnTET (UMR 7041), CNRS, Université Paris Nanterre, 21
-Allée de l’Université, 92000, Nanterre, France.</p>
-<p>3Heinrich Heine University Düsseldorf, Faculty of Arts and
-Humanities, Universitätsstraße 1, 40225 Düsseldorf, Germany.</p>
-<p>4Stockholm University, Department of Swedish and Multilingualism.
-Universitetsvägen 10, 106 91 Stockholm.</p>
-<p>5Leibniz-Centre General Linguistics, Berlin, 10719, Germany</p>
+<p>Svetlana Kuleshova<sup>*1,2,</sup> Stefan Hartmann<sup>3</sup>, and
+Michael Pleyer<sup>1</sup>, Marta Sibierska<sup>1</sup>, Johan
+Blomberg<sup>4</sup>, Przemysław Żywiczyński<sup>1</sup>, Aleksandra
+Ćwiek<sup>5,1</sup>, Sławomir Wacewicz<sup>1</sup></p>
+<p><sup>*</sup>Corresponding Author: <a href="mailto:40010189@parisnanterre.fr">40010189@parisnanterre.fr</a></p>
+<p><sup>1</sup>Nicolaus Copernicus University in Toruń, Center for
+Language Evolution Studies, Fosa Staromiejska 3, 87-100 Toruń,
+Poland.<br />
+<sup>2</sup>ArScAn-Équipe AnTET (UMR 7041), CNRS, Université Paris
+Nanterre, 21 Allée de l’Université, 92000, Nanterre, France.<br />
+<sup>3</sup>Heinrich Heine University Düsseldorf, Faculty of Arts and
+Humanities, Universitätsstraße 1, 40225 Düsseldorf, Germany.<br />
+<sup>4</sup>Stockholm University, Department of Swedish and
+Multilingualism. Universitetsvägen 10, 106 91 Stockholm.<br />
+<sup>5</sup>Leibniz-Centre General Linguistics, Berlin, 10719,
+Germany</p>
 <p>We challenge the validity of the multiple-choice paradigm used in
 many communication experiments. We replicated two experiments and
 replaced the original multiple-choice design with free-text answers. Our
@@ -2945,22 +2964,21 @@ experiments. These various paths to data collection and data treatment
 can inform a nuanced discussion of how experimental results can inform
 the evolution of today’s languages.</p>
 </div>
-<div id="data-preparation" class="section level1" number="2">
-<h1><span class="header-section-number">2</span> Data preparation</h1>
-<div id="source-setup" class="section level2" number="2.1">
-<h2><span class="header-section-number">2.1</span> Source setup</h2>
+<div id="data-preparation" class="section level1" number="3">
+<h1><span class="header-section-number">3</span> Data preparation</h1>
+<div id="source-setup" class="section level2" number="3.1">
+<h2><span class="header-section-number">3.1</span> Source setup</h2>
 <pre class="r"><code>########## folders ##########
 library(here)
 
-parentfolder &lt;- here()
-data         &lt;- paste0(here(&quot;data&quot;), &quot;/&quot;)
-models       &lt;- paste0(here(&quot;models&quot;), &quot;/&quot;)
-plots        &lt;- paste0(here(&quot;plots&quot;), &quot;/&quot;)
-scripts      &lt;- paste0(here(&quot;scripts&quot;), &quot;/&quot;)
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
-########## source file ##########
+parentfolder &lt;- dirname(getwd())
 
-#source(paste0(scripts, &quot;adjectives-preparation.R&quot;))
+data          &lt;- paste0(parentfolder, &#39;/data/&#39;)
+models        &lt;- paste0(parentfolder, &#39;/models/&#39;)
+plots         &lt;- paste0(parentfolder, &#39;/plots/&#39;)
+scripts       &lt;- paste0(parentfolder, &#39;/scripts/&#39;)
 
 #################### packages ####################
 # Core tidyverse for wrangling + plotting; janitor/skimr for quick structure checks; patchwork for combining plots
@@ -2981,6 +2999,11 @@ theme_set(theme_minimal(base_size = 12) + panel_border())
 
 colorBlindBlack8  &lt;- c(&quot;#000000&quot;, &quot;#E69F00&quot;, &quot;#56B4E9&quot;, &quot;#009E73&quot;, 
                        &quot;#F0E442&quot;, &quot;#0072B2&quot;, &quot;#D55E00&quot;, &quot;#CC79A7&quot;)</code></pre>
+<p><strong>Auto-saving figures.</strong> Each plot with
+<code>fig.cap</code> is copied to
+<code>plots/&lt;Rmd-name&gt;/Figure_XX.(png|tif)</code>. This guarantees
+stable filenames for papers, corresponding to figure numbers from the
+html.</p>
 <pre class="r"><code># --- figure &amp; table captions ---
 outputFormat &lt;- knitr::opts_knit$get(&quot;rmarkdown.pandoc.to&quot;); if (is.null(outputFormat)) outputFormat &lt;- &quot;&quot;
 capTabNo &lt;- 1L; capFigNo &lt;- 1L
@@ -3037,9 +3060,24 @@ knitr::knit_hooks$set(plot = function(x, options){
   res
 })</code></pre>
 </div>
-<div id="load-in-data-frames" class="section level2" number="2.2">
-<h2><span class="header-section-number">2.2</span> Load in data
+<div id="load-in-data-frames" class="section level2" number="3.2">
+<h2><span class="header-section-number">3.2</span> Load in data
 frames</h2>
+<ul>
+<li><code>vocs.xlsx</code> — trial-level responses (free text), one row
+per participant×stimulus.</li>
+</ul>
+<!-- -->
+<ul>
+<li><p><code>all_metadata.xlsx</code> — stimulus metadata (concept,
+modality, etc.).</p></li>
+<li><p><code>cosine_sim.csv</code> — ConceptNet cosine between response
+head and target concept; first row is a header row from export and is
+promoted to column names here.</p></li>
+</ul>
+<p><strong>Harmonization.</strong> We <code>clean_names()</code> so
+joins are predictable; cosine is coerced to numeric after header
+fix.</p>
 <pre class="r"><code>vocs &lt;- read_excel(paste0(data, &quot;vocs.xlsx&quot;))  %&gt;% clean_names()
 meta &lt;- read_excel(paste0(data, &quot;all_metadata.xlsx&quot;))  %&gt;% clean_names()
 
@@ -3048,9 +3086,15 @@ colnames(cn) &lt;- as.character(cn[1,])
 cn &lt;- cn[-1,]
 cn$cosine_similarity &lt;- as.numeric(cn$cosine_similarity)</code></pre>
 </div>
-<div id="clean-and-prep-data-frame" class="section level2" number="2.3">
-<h2><span class="header-section-number">2.3</span> Clean and prep data
+<div id="clean-and-prep-data-frame" class="section level2" number="3.3">
+<h2><span class="header-section-number">3.3</span> Clean and prep data
 frame</h2>
+<p><strong>Cleaning &amp; merges.</strong> We standardize IDs
+(participant, stimulus_concept), derive analysis variables, and
+left-join ConceptNet scores on the response–target pair. We keep both
+the raw 4-point coder scale and a binary “exact/near-miss vs miss” to
+support multiple analysis lenses. Where coders disagreed, final labels
+reflect post-hoc adjudication.</p>
 <pre class="r"><code>## ---------- 1) Normalize vocs &amp; cn ----------
 vocs_keys &lt;- vocs %&gt;%
   mutate(
@@ -3235,7 +3279,7 @@ rm(vocs_keys, cn_keys, vocs_fixed, meta_lang, meta_trials, per_trial_outliers,
 # exclusion_summary  -&gt; counts per reason
 # check which rows are NA in cosine_similarity
 # df %&gt;% filter(is.na(cosine_similarity)) %&gt;% nrow()</code></pre>
-<p>Check final df</p>
+<p>Check final df.</p>
 <pre class="r"><code>skim(df)</code></pre>
 <table>
 <caption>Data summary</caption>
@@ -3430,7 +3474,7 @@ rm(vocs_keys, cn_keys, vocs_fixed, meta_lang, meta_trials, per_trial_outliers,
 </tr>
 </tbody>
 </table>
-<p>Rescale cosine similarity (from −1–1 to 0–1)</p>
+<p>Rescale cosine similarity (from −1–1 to 0–1).</p>
 <pre class="r"><code>df &lt;- df %&gt;%
   mutate(
     cosine_rescaled = (cosine_similarity + 1)/2,          # -1..1 → 0..1
@@ -3445,10 +3489,10 @@ df_bins &lt;- df %&gt;%
   mutate(cos_decile = ntile(cosine_rescaled, 10))</code></pre>
 </div>
 </div>
-<div id="descriptive-statistics" class="section level1" number="3">
-<h1><span class="header-section-number">3</span> Descriptive
+<div id="descriptive-statistics" class="section level1" number="4">
+<h1><span class="header-section-number">4</span> Descriptive
 statistics</h1>
-<p>First sense of means and sd</p>
+<p>First sense of means and sd.</p>
 <pre class="r"><code>df %&gt;%
   summarise(
     n = n(),
@@ -3466,15 +3510,31 @@ statistics</h1>
 {"columns":[{"label":["n"],"name":[1],"type":["int"],"align":["right"]},{"label":["binary_mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["binary_sd"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["ord_mean"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["ord_sd"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["cos_org_mean"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["cos_org_sd"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["cos_res_mean"],"name":[8],"type":["dbl"],"align":["right"]},{"label":["cos_res_sd"],"name":[9],"type":["dbl"],"align":["right"]}],"data":[{"1":"27279","2":"0.04838887","3":"0.2145905","4":"0.2899666","5":"0.7697914","6":"0.1753931","7":"0.2430106","8":"0.5876966","9":"0.1215053"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
-<p>Cross-tab of binary vs ordinal</p>
+<p>Per-concept.</p>
+<pre class="r"><code>df %&gt;%
+  group_by(stimulus_concept) %&gt;%
+  summarise(
+    n = n(),
+    mean_binary = mean(binary_guess),
+    mean_judged = mean(judged_similarity),
+    mean_cos_org = mean(cosine_similarity, na.rm = TRUE),
+    mean_cos_res = mean(cosine_rescaled, na.rm = TRUE)
+  ) %&gt;%
+  arrange(desc(mean_binary))</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["stimulus_concept"],"name":[1],"type":["chr"],"align":["left"]},{"label":["n"],"name":[2],"type":["int"],"align":["right"]},{"label":["mean_binary"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["mean_judged"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["mean_cos_org"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mean_cos_res"],"name":[6],"type":["dbl"],"align":["right"]}],"data":[{"1":"eat","2":"1127","3":"0.4259094942","4":"1.328305235","5":"0.56273002","6":"0.7813650"},{"1":"sleep","2":"1566","3":"0.3212005109","4":"2.203065134","5":"0.75087103","6":"0.8754355"},{"1":"snake","2":"827","3":"0.1330108827","4":"0.401451028","5":"0.19262922","6":"0.5963146"},{"1":"water","2":"923","3":"0.0866738895","4":"0.269772481","5":"0.33362795","6":"0.6668140"},{"1":"cut","2":"784","3":"0.0803571429","4":"0.307397959","5":"0.14906037","6":"0.5745302"},{"1":"child","2":"1040","3":"0.0173076923","4":"0.165384615","5":"0.19328698","6":"0.5966435"},{"1":"tiger","2":"1036","3":"0.0154440154","4":"0.194015444","5":"0.18587554","6":"0.5929378"},{"1":"fire","2":"836","3":"0.0143540670","4":"0.056220096","5":"0.13985065","6":"0.5699253"},{"1":"cook","2":"778","3":"0.0141388175","4":"0.046272494","5":"0.06903657","6":"0.5345183"},{"1":"hunt","2":"854","3":"0.0093676815","4":"0.059718970","5":"0.14206501","6":"0.5710325"},{"1":"big","2":"906","3":"0.0066225166","4":"0.026490066","5":"0.08110830","6":"0.5405541"},{"1":"small","2":"933","3":"0.0042872454","4":"0.013933548","5":"0.07312974","6":"0.5365649"},{"1":"man","2":"786","3":"0.0038167939","4":"0.015267176","5":"0.04617204","6":"0.5230860"},{"1":"dull","2":"824","3":"0.0012135922","4":"0.259708738","5":"0.11329845","6":"0.5566492"},{"1":"pound","2":"840","3":"0.0011904762","4":"0.332142857","5":"0.11179927","6":"0.5558996"},{"1":"woman","2":"847","3":"0.0011806375","4":"0.012987013","5":"0.02782125","6":"0.5139106"},{"1":"rock","2":"848","3":"0.0011792453","4":"0.003537736","5":"0.06700378","6":"0.5335019"},{"1":"deer","2":"903","3":"0.0011074197","4":"0.355481728","5":"0.09235100","6":"0.5461755"},{"1":"bad","2":"1105","3":"0.0009049774","4":"0.600904977","5":"0.17354835","6":"0.5867742"},{"1":"fruit","2":"989","3":"0.0000000000","4":"0.006066734","5":"0.15802799","6":"0.5790140"},{"1":"gather","2":"768","3":"0.0000000000","4":"0.007812500","5":"0.04647683","6":"0.5232384"},{"1":"good","2":"900","3":"0.0000000000","4":"0.038888889","5":"0.07692020","6":"0.5384601"},{"1":"hide","2":"945","3":"0.0000000000","4":"0.000000000","5":"0.08291198","6":"0.5414560"},{"1":"knife","2":"811","3":"0.0000000000","4":"0.030826141","5":"0.05596878","6":"0.5279844"},{"1":"many","2":"807","3":"0.0000000000","4":"0.001239157","5":"0.02087529","6":"0.5104376"},{"1":"meat","2":"971","3":"0.0000000000","4":"0.020597322","5":"0.27961540","6":"0.6398077"},{"1":"one","2":"819","3":"0.0000000000","4":"0.000000000","5":"0.08054592","6":"0.5402730"},{"1":"sharp","2":"807","3":"0.0000000000","4":"0.000000000","5":"0.03152043","6":"0.5157602"},{"1":"that","2":"849","3":"0.0000000000","4":"0.000000000","5":"0.10934283","6":"0.5546714"},{"1":"this","2":"850","3":"0.0000000000","4":"0.000000000","5":"0.10081622","6":"0.5504081"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<p>Cross-tab of binary vs ordinal.</p>
 <pre class="r"><code>table(df$binary_guess, df$judged_similarity)</code></pre>
 <pre><code>##    
 ##         0     1     2     3
 ##   0 23323  1322  1314     0
 ##   1     0     0     0  1320</code></pre>
 </div>
-<div id="visual-exploration" class="section level1" number="4">
-<h1><span class="header-section-number">4</span> Visual exploration</h1>
+<div id="visual-exploration" class="section level1" number="5">
+<h1><span class="header-section-number">5</span> Visual exploration</h1>
 <pre class="r"><code># Seed for jitter
 set.seed(1708)</code></pre>
 <div class="figure" style="text-align: left">
@@ -3638,12 +3698,14 @@ similarity that cosine underestimates (e.g., pragmatic or contextual
 ties). Negative extremes: cosine overestimates semantic closeness
 relative to human perception.</p>
 </div>
-<div id="export-df" class="section level1" number="5">
-<h1><span class="header-section-number">5</span> Export df</h1>
+<div id="export-df" class="section level1" number="6">
+<h1><span class="header-section-number">6</span> Export df</h1>
+<p><strong>Output.</strong> We write a single analysis-ready CSV
+(<code>final_df.csv</code>) consumed by <code>2_modeling.Rmd</code>.</p>
 <pre class="r"><code>write_csv(df, paste0(data, &quot;final_df.csv&quot;))</code></pre>
 </div>
-<div id="session-info" class="section level1" number="6">
-<h1><span class="header-section-number">6</span> Session info</h1>
+<div id="session-info" class="section level1" number="7">
+<h1><span class="header-section-number">7</span> Session info</h1>
 <pre class="r"><code>sessionInfo()</code></pre>
 <pre><code>## R version 4.5.1 (2025-06-13 ucrt)
 ## Platform: x86_64-w64-mingw32/x64
