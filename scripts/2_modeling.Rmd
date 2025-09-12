@@ -649,7 +649,7 @@ Compromise to meet computational time.
 -   **Priors:** Weakly informative on intercepts and group-level SDs
     (stabilize estimates, avoid overfitting).
 
--    **Sampling:** 4 chains, 8000 iterations (4000 warmup), with
+-   **Sampling:** 4 chains, 8000 iterations (4000 warmup), with
     `adapt_delta = 0.98–0.99` and `max_treedepth = 12–13` for
     robustness.
 
@@ -1011,7 +1011,7 @@ assign("pairwise_summary", pairwise_summary, inherits = FALSE)
 
 ```
 
-```{r posterior means, echo=FALSE, fig.align='left', fig.cap=capFig("Posterior draws of the global mean (intercept on the outcome scale) for each model, plotted together in one figure."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
+```{r posterior means, echo=FALSE, fig.align='left', fig.cap=capFig("Posterior draws of the global mean (intercept on the outcome scale) for each model, plotted together in one figure."), fig.height=5, fig.width=6, message=FALSE, warning=FALSE}
 # Intercept (population mean μ on outcome scale) — ordered plot
 
 .post_mu_draws <- function(fit, label, ref_row = 1) {
@@ -1043,8 +1043,7 @@ ggplot(mu_draws, aes(x = mu, y = model)) +
   geom_segment(data = mu_summ, aes(x = lo, xend = hi, y = model, yend = model),
                linewidth = 0.8) +
   scale_x_continuous(limits = c(0,1), breaks = seq(0,1,.2)) +
-  labs(x = "μ on outcome scale [0,1]", y = NULL) +
-  theme_minimal(base_size = 12)
+  labs(x = "μ on outcome scale [0,1]", y = NULL)
 ```
 
 ### Stimuli
@@ -1109,8 +1108,7 @@ ggplot(stim_means, aes(x = mean, y = meaning, color = measure)) +
                  position = position_dodge(width = 0.4)) +
   facet_wrap(~ category, scales = "free_y") +
   scale_color_brewer(palette = "Dark2") +
-  labs(x = "Posterior mean μ [0–1]", y = NULL) +
-  theme_minimal(base_size = 11)
+  labs(x = "Posterior mean μ [0–1]", y = NULL)
 ```
 
 ```{r subcategory boxplots stimuli, echo=FALSE, fig.align='left', fig.cap=capFig("Posterior means aggregated at the semantic subcategory level. Each box = distribution of stimulus means within a subcategory; colors = outcome measures."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
@@ -1150,18 +1148,13 @@ part_means <- bind_rows(
 ggplot(part_means, aes(x = mean)) +
   geom_density(fill = "grey85", color = "grey40") +
   facet_wrap(~ measure, nrow = 1, scales = "free_y") +
-  labs(x = "Posterior mean per participant (μ)", y = "Density") +
-  theme_minimal(base_size = 12)
-
+  labs(x = "Posterior mean per participant (μ)", y = "Density")
 ```
 
-```{r boxplot participant, echo=FALSE, fig.align='left', fig.cap=capFig("Distribution of posterior means per participant, shown as boxplots for each outcome measure."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
+```{r boxplot participant, echo=FALSE, fig.align='left', fig.cap=capFig("Distribution of posterior means per participant, shown as boxplots for each outcome measure."), fig.height=5, fig.width=6, message=FALSE, warning=FALSE}
 ggplot(part_means, aes(x = measure, y = mean, fill = measure)) +
   geom_boxplot(alpha = 0.6) +
-  labs(x = NULL, y = "Posterior mean μ [0–1]") +
-  theme_minimal(base_size = 12)
-
-
+  labs(x = NULL, y = "Posterior mean μ [0–1]")
 ```
 
 ## Semantic landscape!
@@ -1260,8 +1253,7 @@ ggplot(adv_long, aes(x = value, y = subcategory, color = contrast)) +
                position = position_dodge(width = 0.3), linewidth = 0.9, alpha = 0.7) +
   scale_color_brewer(palette = "Dark2", name = "Contrast") +
   scale_size_continuous(range = c(2.5, 7), name = "Stimuli\nper subcategory") +
-  labs(x = "Difference on μ (outcome scale)", y = NULL) +
-  theme_minimal(base_size = 11)
+  labs(x = "Difference on μ (outcome scale)", y = NULL)
 ```
 
 ```{r map B, echo=FALSE, fig.align='left', fig.cap=capFig("Semantic topography of similarity measures. The plot renders the difference between distributional (cosine) and human-judged similarity as a topographic surface in Judged (x) × Cosine (y) space. Blue “elevations” indicate regions where cosine similarity assigns higher values than human ratings, while red “depressions” show the reverse. The dashed line marks equality (Cos = Jud). Black-rimmed points are subcategory centroids, scaled by their Binary μ (proportion of exact matches). This visualization highlights how different measures carve out distinct semantic landscapes: binary exact hits are rare (small capitals), judged similarity introduces a gradient, and cosine expands the landscape further by capturing semantic neighborhoods beyond human ratings."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
@@ -1331,7 +1323,6 @@ base <- ggplot() +
     x = "Judged similarity (μ)",
     y = "Cosine similarity (μ)"
   ) +
-  theme_minimal(base_size = 11) +
   theme(panel.grid = element_blank())
 
 # 5) Add 0-ridge & contour bands only if there’s meaningful variation
@@ -1418,7 +1409,6 @@ if (has_force) {
       x = "Judged similarity (μ)",
       y = "Cosine similarity (μ)"
     ) +
-    theme_minimal(base_size = 11) +
     theme(panel.grid = element_blank())
 
   print(p_voronoi)
@@ -1435,8 +1425,7 @@ if (has_force) {
     scale_size_continuous(range = c(3,8), name = "Binary (μ)") +
     coord_equal() +
     labs(x = "Judged similarity (μ)", y = "Cosine similarity (μ)",
-         title = "Subcategory map (fallback): points colored by Cos−Jud; size = Binary") +
-    theme_minimal(base_size = 11)
+         title = "Subcategory map (fallback): points colored by Cos−Jud; size = Binary")
 }
 
 ```
