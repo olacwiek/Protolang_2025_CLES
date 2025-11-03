@@ -207,6 +207,9 @@ library(bayesplot);
 library(BayesFactor);
 library(tidybayes);packageVersion("tidybayes")
 library(bayestestR);
+library(cmdstanr)
+options(brms.backend = "cmdstanr") # Speed gain: ~30-50% faster than rstan
+options(brms.file_refit = "on_change")  # only refit if model changes
 
 # use all available cores for parallel computing
 options(mc.cores = parallel::detectCores())
@@ -402,6 +405,24 @@ pearson_tbl %>%
   left_join(bf_tbl, by = "pair")
 ```
 
+# Variance of random factors
+
+Explore the variance across all possible random factors:
+
+-   Environment
+
+-   Input device
+
+-   Output device
+
+-   Native language
+
+-   Participant
+
+-   Stimulus/concept
+
+-   Hearing disabilities
+
 # Modeling
 
 ## What we model
@@ -419,16 +440,12 @@ pearson_tbl %>%
 All models include varying intercepts for participants and stimuli to
 account for individual and item-level heterogeneity.
 
-## Full (not implemented)
+## Full (for Cognitive Science)
 
-We first fit baseline models for each of the three measures, with only
-random intercepts for participant, native language, and stimulus. After
-baselines we’ll add cross-measure “coupling” models to test how measures
-relate (but aren’t identical), compare by LOO (and optionally Bayes
-factors via bridgesampling), and extract posteriors that demonstrate
-distinct yet overlapping semantic landscapes.
+We fit baseline models for each of the three measures, with only
+random intercepts for participant, native language, and stimulus.
 
-Full solution. (It will take days.)
+Full solution. (Beware: It might take days.)
 
 ```{r eval=FALSE, message=FALSE, warning=FALSE}
 {
@@ -438,8 +455,15 @@ Full solution. (It will take days.)
   if (!dir.exists(models)) dir.create(models, recursive = TRUE, showWarnings = FALSE)
 
   ## ---- data prep (minimal; no z-scoring of cosine) ----
+  ## ---------- COMPLETE-CASE DATA (based on cosine)
+  # Rationale: use the same rows for all three outcomes to enable direct comparability
   if (!"ord_norm" %in% names(df)) df$ord_norm <- df$judged_similarity / 3
-  df_brm <- df
+  df_brm <- subset(df, !is.na(cosine_rescaled))
+
+  ## Keep exact-1 spike info for reporting (from original column but CC rows)
+  ones_table_stim <- aggregate(I(df_brm$cosine_rescaled == 1) ~ stimulus_concept, data = df_brm, FUN = mean)
+  names(ones_table_stim) <- c("stimulus_concept", "one_rate")
+
   df_brm$participant      <- factor(df_brm$participant)
   df_brm$stimulus_concept <- factor(df_brm$stimulus_concept)
   df_brm$native_language  <- factor(df_brm$native_language) # decided to do without it because it was not variable and caused much longer computation times
@@ -451,6 +475,40 @@ Full solution. (It will take days.)
     1,
     df_brm$cosine_rescaled
   )
+  
+  ## ---- cosine preparation (rescaling to make comparable across measures) ----
+  
+  rescale_to_unit <- function(x) {
+    eps <- 1e-10
+    tiny <- 1e-12
+    
+    # Step 1: Epsilon-open to avoid exact boundaries
+    x_open <- pmin(pmax(x - eps, tiny), 1 - tiny)
+    
+    # Step 2: Min-max rescale to [0,1]
+    xmin <- min(x_open, na.rm = TRUE)
+    xmax <- max(x_open, na.rm = TRUE)
+    span <- xmax - xmin
+    
+    if (!is.finite(span) || span <= 0) {
+      stop("Cannot rescale: no variation in x")
+    }
+    
+    x_scaled <- (x_open - xmin) / span
+    
+    # Step 3: Ensure strictly in (0,1) for Beta
+    x_final <- pmin(pmax(x_scaled, tiny), 1 - tiny)
+    
+    return(x_final)
+  }
+  
+  # Apply to data
+  # Nudge exact 1.0s only (keeping original scale)
+  df_brm$cosine_original <- df_brm$cosine_rescaled
+  df_brm$cosine_original[df_brm$cosine_original == 1.0] <- 0.999999
+  
+  # Full min-max rescaling (for comparable plot)
+  df_brm$cosine_scaled <- rescale_to_unit(df_brm$cosine_rescaled)
   
   ## ---- very wide priors for baselines / couplings (not for ZOIB components) ----
   .pri_bin <- c(
@@ -479,7 +537,7 @@ Full solution. (It will take days.)
       data    = df_brm,
       family  = bernoulli(),
       prior   = .pri_bin,
-      chains  = 4, iter = 8000, warmup = 4000,
+      chains  = 4, iter = 8000, warmup = 4000, threads = threading(2),
       control = list(adapt_delta = 0.97, max_treedepth = 12),
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
@@ -496,138 +554,350 @@ Full solution. (It will take days.)
       data    = df_brm,
       family  = cumulative(link = "logit"),
       prior   = .pri_ord,
-      chains  = 4, iter = 8000, warmup = 4000,
-      control = list(adapt_delta = 0.97, max_treedepth = 12),
+      chains  = 4, iter = 10000, warmup = 4000, threads = threading(2),
+      control = list(adapt_delta = 0.99, max_treedepth = 13),
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
     )
     saveRDS(fit_ord, .ord_rds)
   }
 
-  .cos_rds <- file.path(models, "fit_cos.rds")
-  if (file.exists(.cos_rds)) {
-    fit_cos <- readRDS(.cos_rds)
+  .cos_org_rds <- file.path(models, "fit_cos_org.rds")
+  if (file.exists(.cos_org_rds)) {
+    fit_cos_org <- readRDS(.cos_org_rds)
   } else {
-    fit_cos <- brm(
-      cosine_rescaled ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
+    fit_cos_org <- brm(
+      cosine_original ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
       data    = df_brm,
-      family  = zero_one_inflated_beta(),  # includes exact 0s and 1s
-      # per your rule: no explicit priors for ZOIB subcomponents
-      chains  = 4, iter = 8000, warmup = 4000,
-      control = list(adapt_delta = 0.97, max_treedepth = 12),
+      family  = Beta(), 
+      prior = c(
+        set_prior("normal(0, 2)", class = "Intercept"),
+        set_prior("student_t(3, 0, 2.5)", class = "sd"),
+        set_prior("gamma(0.01, 0.01)", class = "phi")),
+      chains  = 4, iter = 8000, warmup = 4000, threads = threading(2),
+      control = list(adapt_delta = 0.99, max_treedepth = 13),
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
     )
-    saveRDS(fit_cos, .cos_rds)
+    saveRDS(fit_cos_org, .cos_org_rds)
+  }
+  
+  .cos_com_rds <- file.path(models, "fit_cos_com.rds")
+  if (file.exists(.cos_com_rds)) {
+    fit_cos_com <- readRDS(.cos_com_rds)
+  } else {
+    fit_cos_com <- brm(
+      cosine_scaled ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
+      data    = df_brm,
+      family  = Beta(), 
+      prior = c(
+        set_prior("normal(0, 2)", class = "Intercept"),
+        set_prior("student_t(3, 0, 2.5)", class = "sd"),
+        set_prior("gamma(0.01, 0.01)", class = "phi")),
+      chains  = 4, iter = 8000, warmup = 4000, threads = threading(2),
+      control = list(adapt_delta = 0.99, max_treedepth = 13),
+      seed    = 1708, refresh = 100,
+      save_pars = save_pars(all = TRUE)
+    )
+    saveRDS(fit_cos_com, .cos_com_rds)
   }
 
   ## ---- compact Bayes R^2 (kept as r2_table) ----
   .r2 <- function(fit) { r <- bayes_R2(fit); c(Estimate = mean(r), Q2.5 = quantile(r,.025), Q97.5 = quantile(r,.975)) }
   r2_table <- data.frame(
-    model = c("Binary (Bernoulli)", "Judged (Ordinal)", "Cosine (ZOIB)"),
-    rbind(.r2(fit_bin), .r2(fit_ord), .r2(fit_cos))
+    model = c("Binary (Bernoulli)", "Judged (Ordinal)", "Cosine (Beta)"),
+    rbind(.r2(fit_bin), .r2(fit_ord), .r2(fit_cos_org))
   )
   rownames(r2_table) <- NULL
   r2_table$Estimate <- round(r2_table$Estimate, 3)
   r2_table$Q2.5     <- round(r2_table$Q2.5, 3)
   r2_table$Q97.5    <- round(r2_table$Q97.5, 3)
   print(r2_table)
-
-  ## ========================= COUPLING MODELS =========================
-  ## Judged <- Cosine (no z-scoring; cosine_rescaled is 0–1 and interpretable)
-  .m_ord_cos_rds <- file.path(models, "m_ord_cos.rds")
-  if (file.exists(.m_ord_cos_rds)) {
-    m_ord_cos <- readRDS(.m_ord_cos_rds)
-  } else {
-    m_ord_cos <- brm(
-      judged_ord ~ 1 + cosine_rescaled +
-        (1 + cosine_rescaled | s | stimulus_concept) +
-        (1 | p | participant) + (1 | l | native_language),
-      data    = df_brm, family = cumulative("logit"),
-      prior   = .pri_wide,
-      chains  = 4, iter = 8000, warmup = 4000,
-      control = list(adapt_delta = 0.98, max_treedepth = 13),
-      seed    = 1708, refresh = 50,
-      save_pars = save_pars(all = TRUE)
-    )
-    saveRDS(m_ord_cos, .m_ord_cos_rds)
-  }
-
-  ## Binary <- Cosine
-  .m_bin_cos_rds <- file.path(models, "m_bin_cos.rds")
-  if (file.exists(.m_bin_cos_rds)) {
-    m_bin_cos <- readRDS(.m_bin_cos_rds)
-  } else {
-    m_bin_cos <- brm(
-      binary_guess ~ 1 + cosine_rescaled +
-        (1 + cosine_rescaled | s | stimulus_concept) +
-        (1 | p | participant) + (1 | l | native_language),
-      data    = df_brm, family = bernoulli(),
-      prior   = .pri_wide,
-      chains  = 4, iter = 8000, warmup = 4000,
-      control = list(adapt_delta = 0.98, max_treedepth = 13),
-      seed    = 1708, refresh = 50,
-      save_pars = save_pars(all = TRUE)
-    )
-    saveRDS(m_bin_cos, .m_bin_cos_rds)
-  }
-
-  ## Binary <- Judged (uses your 0–1 'ord_norm')
-  .m_bin_jud_rds <- file.path(models, "m_bin_jud.rds")
-  if (file.exists(.m_bin_jud_rds)) {
-    m_bin_jud <- readRDS(.m_bin_jud_rds)
-  } else {
-    m_bin_jud <- brm(
-      binary_guess ~ 1 + ord_norm +
-        (1 + ord_norm | s | stimulus_concept) +
-        (1 | p | participant) + (1 | l | native_language),
-      data    = df_brm, family = bernoulli(),
-      prior   = .pri_wide,
-      chains  = 4, iter = 8000, warmup = 4000,
-      control = list(adapt_delta = 0.98, max_treedepth = 13),
-      seed    = 1708, refresh = 50,
-      save_pars = save_pars(all = TRUE)
-    )
-    saveRDS(m_bin_jud, .m_bin_jud_rds)
-  }
-
-  ## Cosine (ZOIB, μ) <- Judged (keep zoi/oi intercept-only)
-  .m_cos_jud_rds <- file.path(models, "m_cos_jud.rds")
-  if (file.exists(.m_cos_jud_rds)) {
-    m_cos_jud <- readRDS(.m_cos_jud_rds)
-  } else {
-    m_cos_jud <- brm(
-      cosine_rescaled ~ 1 + ord_norm +
-        (1 + ord_norm | s | stimulus_concept) +
-        (1 | p | participant) + (1 | l | native_language),
-      data    = df_brm, family = zero_one_inflated_beta(),
-      # no explicit priors for ZOIB components per your instruction
-      chains  = 4, iter = 8000, warmup = 4000,
-      control = list(adapt_delta = 0.98, max_treedepth = 13),
-      seed    = 1708, refresh = 50,
-      save_pars = save_pars(all = TRUE)
-    )
-    saveRDS(m_cos_jud, .m_cos_jud_rds)
-  }
-
-  ## ---- LOO comparisons (vs respective baselines) ----
-  cat("\n# LOO: Binary baseline vs Binary <- Cosine\n")
-  print(loo_compare(loo(fit_bin), loo(m_bin_cos)))
-  cat("\n# LOO: Binary baseline vs Binary <- Judged\n")
-  print(loo_compare(loo(fit_bin), loo(m_bin_jud)))
-  cat("\n# LOO: Ordinal baseline vs Judged <- Cosine\n")
-  print(loo_compare(loo(fit_ord), loo(m_ord_cos)))
-  cat("\n# LOO: Cosine baseline vs Cosine <- Judged (ZOIB)\n")
-  print(loo_compare(loo(fit_cos), loo(m_cos_jud)))
+  
 
   ## ---- cleanup helpers (keep only model objects + r2_table + path vars) ----
   rm(list = c(".pri_bin",".pri_ord",".pri_wide",
-              ".bin_rds",".ord_rds",".cos_rds",
+              ".bin_rds",".ord_rds",".cos_org_rds", ".cos_com_rds",
               ".m_ord_cos_rds",".m_bin_cos_rds",".m_bin_jud_rds",".m_cos_jud_rds"))
 }
 ```
 
-## Compromise
+## Extract results
+
+Compare the cosine similarity models on two scales
+
+```{r}
+# Extract stimulus posteriors from both models
+stim_original <- fitted(fit_cos_org, 
+                       newdata = data.frame(stimulus_concept = levels(df_brm$stimulus_concept)),
+                       re_formula = ~(1|stimulus_concept))
+
+stim_scaled <- fitted(fit_cos_com,
+                     newdata = data.frame(stimulus_concept = levels(df_brm$stimulus_concept)),
+                     re_formula = ~(1|stimulus_concept))
+
+# Perfect rank preservation
+cor(stim_original[,"Estimate"], stim_scaled[,"Estimate"], method = "spearman")
+# Should be 1.0
+```
+
+Verify Rank Concordance
+
+```{r}
+# Extract stimulus-level predictions from both
+get_stim_preds <- function(fit, label) {
+  nd <- data.frame(stimulus_concept = levels(df_brm$stimulus_concept))
+  preds <- fitted(fit, newdata = nd, 
+                  re_formula = ~(1|stimulus_concept), 
+                  summary = TRUE)
+  tibble(
+    stimulus = nd$stimulus_concept,
+    mean = preds[, "Estimate"],
+    model = label
+  )
+}
+
+stim_both <- bind_rows(
+  get_stim_preds(fit_cos_original, "Original scale"),
+  get_stim_preds(fit_cos_scaled, "Rescaled")
+)
+
+# Rank correlation (should be perfect)
+stim_wide <- stim_both %>%
+  pivot_wider(names_from = model, values_from = mean)
+
+cor(stim_wide$`Original scale`, stim_wide$`Rescaled`, method = "spearman")
+# Should be 1.0 - perfect rank preservation
+
+# Visualize
+ggplot(stim_wide, aes(x = `Original scale`, y = `Rescaled`)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Stimulus rankings preserved by rescaling")
+```
+
+### Compare outcome scales (pasted from claude just like that)
+
+Binary model:   P(Y = 1)              → [0, 1] probability
+Cosine model:   E(Y)                  → [0, 1] continuous
+Ordinal model:  P(Y = 0,1,2,3)        → How to map to [0,1]?
+
+Ordinal to continuous mapping
+
+```{r}
+# Helper function: extract expected value from ordinal model
+get_ordinal_expected <- function(fit_ord, newdata) {
+  # Get predicted probabilities for each category
+  # fitted() for ordinal gives P(Y = k) for each k
+  pred <- fitted(fit_ord, newdata = newdata, 
+                 re_formula = ~(1|stimulus_concept),
+                 summary = FALSE)  # Get all posterior draws
+  
+  # pred is array: draws × observations × categories
+  # Dimensions: [n_draws, n_stimuli, 4 categories]
+  
+  # Compute expected value for each draw and stimulus
+  # E(Y) = 0*P(Y=0) + 1*P(Y=1) + 2*P(Y=2) + 3*P(Y=3)
+  expected_vals <- apply(pred, c(1, 2), function(probs) {
+    sum(c(0, 1, 2, 3) * probs)
+  })
+  
+   
+  # Normalize to [0, 1]
+  expected_vals_norm <- expected_vals / 3
+  
+  # Return summary statistics
+  tibble(
+    stimulus = newdata$stimulus_concept,
+    Estimate = apply(expected_vals_norm, 2, mean),
+    Q2.5 = apply(expected_vals_norm, 2, quantile, 0.025),
+    Q97.5 = apply(expected_vals_norm, 2, quantile, 0.975)
+    )
+  }
+  
+  # Create newdata for all stimuli
+  nd_stim <- data.frame(stimulus_concept = levels(df_brm$stimulus_concept))
+  
+  # Extract predictions from all three models
+  stim_binary <- fitted(fit_bin, newdata = nd_stim,
+                        re_formula = ~(1|stimulus_concept),
+                        summary = TRUE) %>%
+    as_tibble() %>%
+    mutate(stimulus = nd_stim$stimulus_concept,
+           measure = "Binary")
+  
+  stim_ordinal <- get_ordinal_expected(fit_ord, nd_stim) %>%
+    mutate(measure = "Judged")
+  
+  stim_cosine <- fitted(fit_cos_scaled, newdata = nd_stim,
+                        re_formula = ~(1|stimulus_concept),
+                        summary = TRUE) %>%
+    as_tibble() %>%
+    mutate(stimulus = nd_stim$stimulus_concept,
+           measure = "Cosine (rescaled)")
+  
+  # Combine all three
+  all_measures <- bind_rows(
+    stim_binary %>% select(stimulus, Estimate, Q2.5, Q97.5, measure),
+    stim_ordinal %>% select(stimulus, Estimate, Q2.5, Q97.5, measure),
+    stim_cosine %>% select(stimulus, Estimate, Q2.5, Q97.5, measure)
+  ) %>%
+    left_join(cats, by = c("stimulus" = "meaning"))
+```
+
+Visualization 1: Heatmap
+
+```{r}
+ggplot(all_measures, aes(x = measure, y = stimulus, fill = Estimate)) +
+  geom_tile(color = "white") +
+  facet_grid(category ~ ., scales = "free_y", space = "free_y") +
+  scale_fill_viridis_c(limits = c(0, 1), 
+                       name = "μ [0,1]",
+                       option = "plasma") +
+  labs(x = NULL, y = NULL,
+       title = "Stimulus success across evaluation lenses",
+       subtitle = "All measures normalized to [0,1] scale") +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.grid = element_blank())
+```
+
+Visualization 2: Lollipop Plot
+
+```{r}
+# Reorder stimuli by cosine performance for readability
+stim_order <- all_measures %>%
+  filter(measure == "Cosine (rescaled)") %>%
+  arrange(Estimate) %>%
+  pull(stimulus)
+
+all_measures <- all_measures %>%
+  mutate(stimulus = factor(stimulus, levels = stim_order),
+         measure = factor(measure, 
+                         levels = c("Binary", "Judged", "Cosine (rescaled)")))
+
+ggplot(all_measures, aes(x = Estimate, y = stimulus, color = measure)) +
+  geom_point(position = position_dodge(width = 0.5), size = 2) +
+  geom_errorbarh(aes(xmin = Q2.5, xmax = Q97.5), 
+                 height = 0.2,
+                 position = position_dodge(width = 0.5)) +
+  facet_wrap(~ category, scales = "free_y", ncol = 2) +
+  scale_color_brewer(palette = "Dark2", name = "Evaluation lens") +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+  labs(x = "Posterior mean μ [0,1]", y = NULL,
+       title = "Three lenses reveal nested semantic landscapes") +
+  theme_minimal(base_size = 11)
+```
+
+Visualization 3: "Progressive Inclusivity" Plot
+This directly shows your research question:
+
+```{r}
+# Count how many stimuli "succeed" under each threshold
+thresholds <- seq(0.1, 0.9, 0.1)
+
+success_counts <- map_df(thresholds, function(thresh) {
+  all_measures %>%
+    group_by(measure) %>%
+    summarise(
+      threshold = thresh,
+      n_above = sum(Estimate > thresh),
+      prop_above = mean(Estimate > thresh)
+    )
+})
+
+ggplot(success_counts, aes(x = threshold, y = n_above, color = measure)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2.5) +
+  scale_color_brewer(palette = "Dark2", name = "Evaluation lens") +
+  scale_x_continuous(breaks = thresholds) +
+  labs(x = "Success threshold (μ)", 
+       y = "Number of stimuli above threshold",
+       title = "Cosine lens is most permissive, binary most restrictive",
+       subtitle = "More stimuli 'succeed' under distributional similarity") +
+  theme_minimal(base_size = 12)
+```
+
+Visualization 4: Direct Comparison Grid
+
+```{r}
+# Advantage plot adapted for all three measures
+all_measures_wide <- all_measures %>%
+  select(stimulus, subcategory, measure, Estimate) %>%
+  pivot_wider(names_from = measure, values_from = Estimate)
+
+# Compute gaps
+all_measures_wide <- all_measures_wide %>%
+  mutate(
+    `Judged - Binary` = Judged - Binary,
+    `Cosine - Judged` = `Cosine (rescaled)` - Judged,
+    `Cosine - Binary` = `Cosine (rescaled)` - Binary
+  )
+
+# Aggregate by subcategory
+subcat_gaps <- all_measures_wide %>%
+  group_by(subcategory) %>%
+  summarise(
+    n = n(),
+    across(c(`Judged - Binary`, `Cosine - Judged`, `Cosine - Binary`), 
+           mean, .names = "{.col}_mean")
+  )
+
+# Plot
+subcat_gaps %>%
+  pivot_longer(cols = ends_with("_mean"), 
+               names_to = "contrast", 
+               values_to = "gap") %>%
+  mutate(contrast = str_remove(contrast, "_mean"),
+         subcategory = fct_reorder(subcategory, gap, .fun = max)) %>%
+  ggplot(aes(x = gap, y = subcategory, color = contrast)) +
+  geom_vline(xintercept = 0, linetype = 2, color = "gray50") +
+  geom_point(aes(size = n), position = position_dodge(width = 0.4)) +
+  geom_segment(aes(x = 0, xend = gap, y = subcategory, yend = subcategory),
+               position = position_dodge(width = 0.4),
+               linewidth = 0.8) +
+  scale_color_brewer(palette = "Dark2", name = "Contrast") +
+  scale_size_continuous(range = c(2, 6), name = "N stimuli") +
+  labs(x = "Gap in μ (positive = second measure more permissive)",
+       y = NULL,
+       title = "Progressive inclusivity across evaluation lenses")
+```
+
+Critical Code Block: Getting Ordinal Expected Values
+If the above get_ordinal_expected() function doesn't work with your brms version, here's a more robust alternative:
+```{r}
+# Alternative method using posterior_predict
+get_ordinal_expected_v2 <- function(fit_ord, newdata) {
+  # Get posterior predicted categories for each draw
+  pred_cats <- posterior_predict(fit_ord, 
+                                 newdata = newdata,
+                                 re_formula = ~(1|stimulus_concept))
+  
+  # pred_cats is matrix: draws × observations
+  # Values are 0, 1, 2, or 3
+  
+  # Convert categories to [0,1] scale
+  pred_norm <- pred_cats / 3
+  
+  # Summarize across draws
+  tibble(
+    stimulus = newdata$stimulus_concept,
+    Estimate = apply(pred_norm, 2, mean),
+    Q2.5 = apply(pred_norm, 2, quantile, 0.025),
+    Q97.5 = apply(pred_norm, 2, quantile, 0.975)
+  )
+}
+
+# Test both methods and compare
+stim_ord_v1 <- get_ordinal_expected(fit_ord, nd_stim)
+stim_ord_v2 <- get_ordinal_expected_v2(fit_ord, nd_stim)
+
+# Should be highly correlated (might differ slightly)
+cor(stim_ord_v1$Estimate, stim_ord_v2$Estimate)
+```
+
+
+## Compromise (for Protolang)
 
 Compromise to meet computational time.
 
@@ -874,7 +1144,7 @@ if (has_patchwork) {
 }
 ```
 
-## Posteriors visualized
+### Posteriors visualized
 
 Goal of this section:
 
@@ -1046,7 +1316,7 @@ ggplot(mu_draws, aes(x = mu, y = model)) +
   labs(x = "μ on outcome scale [0,1]", y = NULL)
 ```
 
-### Stimuli
+#### Stimuli
 
 ```{r eval=TRUE, message=FALSE, warning=FALSE, include=FALSE}
 # per-stimulus posterior means + join to cats
@@ -1121,7 +1391,7 @@ ggplot(stim_means, aes(x = subcategory, y = mean, fill = measure)) +
 
 ```
 
-### Participant
+#### Participant
 
 ```{r eval=TRUE, message=FALSE, warning=FALSE, include=FALSE}
 nd_part <- data.frame(participant = levels(df_cc$participant))
@@ -1157,7 +1427,7 @@ ggplot(part_means, aes(x = measure, y = mean, fill = measure)) +
   labs(x = NULL, y = "Posterior mean μ [0–1]")
 ```
 
-## Semantic landscape!
+### Semantic landscape
 
 ```{r}
 stopifnot(exists("cats"), exists("df_cc"),

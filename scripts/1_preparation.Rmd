@@ -247,8 +247,6 @@ knitr::knit_hooks$set(plot = function(x, options){
 -   `vocs.xlsx` — trial-level responses (free text), one row per
     participant×stimulus.
 
-<!-- -->
-
 -   `all_metadata.xlsx` — stimulus metadata (concept, modality, etc.).
 
 -   `cosine_sim.csv` — ConceptNet cosine between response head and
@@ -432,18 +430,60 @@ vocs_cn <- vocs_fixed %>%
   left_join(cn_keys %>% select(right_answer_key, answer_key, cosine_similarity),
             by = c("right_answer_key", "answer_key"))
 
-## ---------- 8) Final df (filter to kept participants first) ----------
+## ---------- 8) Further cleanup meta ----------
+
+meta_lang <- meta_lang %>%
+  rename(environment = environment_choice) %>%
+  mutate(
+    environment = case_when(
+      environment == 1 ~ "home",
+      environment == 2 ~ "transport",
+      environment == 3 ~ "another public space",
+      environment == 4 ~ "other",
+      TRUE ~ NA_character_
+    ),
+    audio_device = case_when(
+      audio_device == 1 ~ "speaker",
+      audio_device == 2 ~ "headphones",
+      audio_device == 3 ~ "other",
+      TRUE ~ NA_character_
+    ),
+    text_device = case_when(
+      text_device == 1 ~ "computer",
+      text_device == 2 ~ "phone",
+      text_device == 3 ~ "other",
+      TRUE ~ NA_character_
+    )
+  )
+
+
+## ---------- 9) Final df (filter to kept participants first) ----------
 df <- vocs_cn %>%
   semi_join(keep_ids, by = c("participant" = "rec_session_id_chr")) %>%
   left_join(
     meta_lang %>%
       mutate(rec_session_id_chr = as.character(rec_session_id)) %>%
-      select(rec_session_id_chr, native_language),
+      select(
+        rec_session_id_chr,
+        native_language,
+        text_device,
+        audio_device,
+        environment,
+        hearing_disabilities,
+        toughness,
+        quantity
+      ),
     by = c("participant" = "rec_session_id_chr")
   ) %>%
   transmute(
     participant,
     native_language,
+    hearing_disabilities,
+    environment,
+    audio_device,
+    text_device,
+    toughness,
+    quantity_guessed = quantity,
     trial_id,
     stimulus_concept = right_answer,
     guessed_concept  = answer,
@@ -452,11 +492,11 @@ df <- vocs_cn %>%
     cosine_similarity
   )
 
-## ---------- 9) Cleanup environment ----------
+## ---------- 10) Cleanup environment ----------
 rm(vocs_keys, cn_keys, vocs_fixed, meta_lang, meta_trials, per_trial_outliers,
    per_part, max_rows, keep_ids, vocs_cn)
 
-## ---------- 10) Outputs ----------
+## ---------- 11) Outputs ----------
 # df                 -> final dataset
 # exclusion_report   -> detailed rows (participant-level) with reason(s)
 # exclusion_summary  -> counts per reason
@@ -526,6 +566,16 @@ Cross-tab of binary vs ordinal.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 table(df$binary_guess, df$judged_similarity)
 ```
+
+## Add descriptive statistics on
+participant,
+    native_language,
+    hearing_disabilities,
+    environment,
+    audio_device,
+    text_device,
+    toughness,
+    quantity_guessed = quantity,
 
 # Visual exploration
 
