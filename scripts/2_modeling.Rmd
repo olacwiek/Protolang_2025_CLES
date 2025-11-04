@@ -65,102 +65,6 @@ language, and the three outcome measures.
 -   Figures saved to `plots/2_modeling/` (auto-saved with stable
     numbering).
 
-# Abstract
-
-**Experiments in language evolution: inferences from closed- vs
-open-ended semantic space paradigms**
-
-Svetlana Kuleshova^\*1,2,^ Stefan Hartmann^3^, and Michael Pleyer^1^,
-Marta Sibierska^1^, Johan Blomberg^4^, Przemysław Żywiczyński^1^,
-Aleksandra Ćwiek^5,1^, Sławomir Wacewicz^1^
-
-^\*^Corresponding Author:
-[40010189\@parisnanterre.fr](mailto:40010189@parisnanterre.fr)
-
-^1^Nicolaus Copernicus University in Toruń, Center for Language
-Evolution Studies, Fosa Staromiejska 3, 87-100 Toruń, Poland.\
-^2^ArScAn-Équipe AnTET (UMR 7041), CNRS, Université Paris Nanterre, 21
-Allée de l'Université, 92000, Nanterre, France.\
-^3^Heinrich Heine University Düsseldorf, Faculty of Arts and Humanities,
-Universitätsstraße 1, 40225 Düsseldorf, Germany.\
-^4^Stockholm University, Department of Swedish and Multilingualism.
-Universitetsvägen 10, 106 91 Stockholm.\
-^5^Leibniz-Centre General Linguistics, Berlin, 10719, Germany
-
-We challenge the validity of the multiple-choice paradigm used in many
-communication experiments. We replicated two experiments and replaced
-the original multiple-choice design with free-text answers. Our results
-indicate that participants performed worse compared to the original
-studies. The post hoc analysis showed that often relevant semantic
-domains were correctly identified, but full congruency with the target
-concepts was rare. We discuss how the results of each paradigm can be
-mapped onto a larger picture of language evolution.
-
-What inferences about reality can we make from linguistic experiments?
-By definition, controlled experiments do not represent reality in all
-its complexity, and thus, it is important to be cautious when drawing
-conclusions. As one example, some recent experimental studies have made
-strong claims concluding that humans can understand improvised or
-interspecies forms of communication, specifically, novel non-linguistic
-vocalizations (Ćwiek et al., 2021) and gestures in non-human great apes
-(Graham and Hobaiter, 2023). Here, we follow up on these studies,
-altering one crucial aspect: Both original studies used a
-multiple-choice paradigm, whereby participants were constrained to
-choose one answer from a small set of alternatives; that is, for each
-gesture or vocalisation they were offered a set of potential
-interpretations and asked to guess the one best reflecting its intended
-meaning. We expected that replacing the closed-ended, multiple-choice
-paradigm with an open-ended, free-text paradigm would lead to different
-results and thus different conclusions about human capacities to
-‘understand’ ape gestures or novel vocalizations.
-
-To test our hypothesis, we replicated the studies by Ćwiek et al. and
-Graham & Hobaiter, but with the participants freely typing in their
-answer (i.e., their interpretation of the meaning of an ape gesture or
-novel vocalisation) rather than selecting it from a set of predefined
-choices. To assess the proximity of the participants’ answers with the
-target concepts, we used three complementary approaches: (i) binary
-assessment of correctness (yes/no), (ii) manual coding on a four-point
-scale, (iii) cosine similarity between the participants’ responses and
-the target concepts using ConceptNet. For (i) and (ii), participants’
-answers were coded by two raters on a four-point Likert scale
-(transformed into a binary system for (i)), showing moderate-to-high
-inter-rater agreement. All mismatches between coders were discussed in
-the team and resolved. For (iii), the proximity between the words in the
-responses (heads of phrases in the case of multi-word answers) and the
-word denoting the target concept in ConceptNet (Speer et al. 2017) were
-assessed automatically. Across all approaches, our results show that
-participants performed qualitatively worse compared to the original
-studies, with a vast majority of responses showing no resemblance
-whatsoever to the target concept according to the manual coding
-procedure. In the ConceptNet analysis, the responses were found to be
-conceptually fairly close to the target concepts in many cases (e.g.,
-the same semantic domain, as in ‘sleep’ vs ‘snore’), but hardly any
-response was fully congruent with the target concept.
-
-Apart from revisiting the question to what extent participants
-“understand” novel vocalizations or ape gestures, our data give us the
-opportunity to evaluate different possibilities of interpreting
-participants’ free-text answers: manual coding with different levels of
-granularity on the one hand, and automatic similarity detection using
-NLP resources on the other. The three measures we used carve out
-different semantic landscapes, shaping how we perceive communicative
-transparency. A perfect-match approach treats meaning as a binary on/off
-switch, limiting “understanding” to exact hits while discarding
-near-misses as failures. The Likert-scale approach expands this space,
-recognizing perceived shades of similarity. The ConceptNet-based cosine
-similarity approach stretches the landscape even further, mapping words
-onto a gradient of conceptual distances, where even broad associations
-register as meaningful connections. Because these methods define
-similarity differently, they potentially reveal different facets of how
-novel signals convey meaning.
-
-We thus conclude that different setups and analysis methods give us a
-nuanced perspective on the role of semantic space in semiotic
-experiments. These various paths to data collection and data treatment
-can inform a nuanced discussion of how experimental results can inform
-the evolution of today’s languages.
-
 # Data preparation
 
 ## Source setup
@@ -326,7 +230,7 @@ cats  <- read_csv(paste0(data, "meaning_categories.csv")) %>% clean_names()
 
 # Correlations
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 dat_cor <- df %>%
   select(cosine = cosine_rescaled, judged = ord_norm, binary = bin_f) %>%
   drop_na()
@@ -334,14 +238,14 @@ dat_cor <- df %>%
 
 Pearson correlations (with CIs)
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 pearson_mat <- cor(dat_cor, use = "pairwise.complete.obs", method = "pearson")
 pearson_mat
 ```
 
 Pairwise Pearson tests (p-values + CI)
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 pearson_tests <- list(
   cosine_judged = cor.test(dat_cor$cosine, dat_cor$judged),
   cosine_binary = cor.test(dat_cor$cosine, dat_cor$binary),
@@ -360,7 +264,7 @@ pearson_tbl <- tibble(
 Bayesian correlations via BayesFactor (Point-biserial is just Pearson on
 numeric 0/1; we still get Bayesian posterior for rho.)
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 post_cos_jud <- bb_corr(dat_cor$cosine, dat_cor$judged, R = 8000, seed = 1708)
 post_cos_bin <- bb_corr(dat_cor$cosine, dat_cor$binary, R = 8000, seed = 1708)
 post_jud_bin <- bb_corr(dat_cor$judged, dat_cor$binary, R = 8000, seed = 1708)
@@ -386,7 +290,7 @@ BIC-approx Bayes factors for "correlation != 0" For
 continuous-continuous: linear model; for (cont \~ binary): also linear
 is fine here.
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 BF_cos_jud <- bf_bic(dat_cor$cosine, dat_cor$judged)
 BF_cos_bin <- bf_bic(dat_cor$cosine, dat_cor$binary)
 BF_jud_bin <- bf_bic(dat_cor$judged, dat_cor$binary)
@@ -399,7 +303,7 @@ bf_tbl <- tibble(
 
 One clean summary table
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 pearson_tbl %>%
   left_join(bayes_corr_summary, by = "pair") %>%
   left_join(bf_tbl, by = "pair")
@@ -537,7 +441,9 @@ Full solution. (Beware: It might take days.)
       data    = df_brm,
       family  = bernoulli(),
       prior   = .pri_bin,
-      chains  = 4, iter = 8000, warmup = 4000, threads = threading(2),
+      backend = "cmdstanr",
+      chains  = 4, iter = 8000, warmup = 4000, 
+      threads = threading(2), cores = parallel::detectCores(),
       control = list(adapt_delta = 0.97, max_treedepth = 12),
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
@@ -554,7 +460,9 @@ Full solution. (Beware: It might take days.)
       data    = df_brm,
       family  = cumulative(link = "logit"),
       prior   = .pri_ord,
-      chains  = 4, iter = 10000, warmup = 4000, threads = threading(2),
+      backend = "cmdstanr",
+      chains  = 4, iter = 10000, warmup = 4000, 
+      threads = threading(2), cores = parallel::detectCores(),
       control = list(adapt_delta = 0.99, max_treedepth = 13),
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
@@ -574,7 +482,9 @@ Full solution. (Beware: It might take days.)
         set_prior("normal(0, 2)", class = "Intercept"),
         set_prior("student_t(3, 0, 2.5)", class = "sd"),
         set_prior("gamma(0.01, 0.01)", class = "phi")),
-      chains  = 4, iter = 8000, warmup = 4000, threads = threading(2),
+      backend = "cmdstanr",
+      chains  = 4, iter = 10000, warmup = 4000, 
+      threads = threading(2), cores = parallel::detectCores(),
       control = list(adapt_delta = 0.99, max_treedepth = 13),
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
@@ -594,7 +504,9 @@ Full solution. (Beware: It might take days.)
         set_prior("normal(0, 2)", class = "Intercept"),
         set_prior("student_t(3, 0, 2.5)", class = "sd"),
         set_prior("gamma(0.01, 0.01)", class = "phi")),
-      chains  = 4, iter = 8000, warmup = 4000, threads = threading(2),
+      backend = "cmdstanr",
+      chains  = 4, iter = 10000, warmup = 4000, 
+      threads = threading(2), cores = parallel::detectCores(),
       control = list(adapt_delta = 0.99, max_treedepth = 13),
       seed    = 1708, refresh = 100,
       save_pars = save_pars(all = TRUE)
@@ -603,22 +515,43 @@ Full solution. (Beware: It might take days.)
   }
 
   ## ---- compact Bayes R^2 (kept as r2_table) ----
-  .r2 <- function(fit) { r <- bayes_R2(fit); c(Estimate = mean(r), Q2.5 = quantile(r,.025), Q97.5 = quantile(r,.975)) }
-  r2_table <- data.frame(
-    model = c("Binary (Bernoulli)", "Judged (Ordinal)", "Cosine (Beta)"),
-    rbind(.r2(fit_bin), .r2(fit_ord), .r2(fit_cos_org))
-  )
-  rownames(r2_table) <- NULL
-  r2_table$Estimate <- round(r2_table$Estimate, 3)
-  r2_table$Q2.5     <- round(r2_table$Q2.5, 3)
-  r2_table$Q97.5    <- round(r2_table$Q97.5, 3)
-  print(r2_table)
+  # Path to saved R2 summary
+  .r2_rds <- file.path(models, "r2_table.rds")
+  
+  if (file.exists(.r2_rds)) {
+    # If the summary table already exists, just load it
+    r2_table <- readRDS(.r2_rds)
+    message("Loaded existing r2_table from ", .r2_rds)
+  
+  } else {
+    # Otherwise, compute it fresh from model fits
+    .r2 <- function(fit) {
+      r <- bayes_R2(fit)
+      c(Estimate = mean(r),
+        Q2.5 = quantile(r, .025),
+        Q97.5 = quantile(r, .975))
+    }
+  
+    r2_table <- data.frame(
+      model = c("Binary (Bernoulli)", "Judged (Ordinal)", "Cosine (Beta)"),
+      rbind(.r2(fit_bin), .r2(fit_ord), .r2(fit_cos_org))
+    )
+  
+    # clean rounding
+    r2_table$Estimate <- round(r2_table$Estimate, 3)
+    r2_table$Q2.5     <- round(r2_table$Q2.5, 3)
+    r2_table$Q97.5    <- round(r2_table$Q97.5, 3)
+  
+    # Save table to reuse later
+    saveRDS(r2_table, .r2_rds)
+    message("Saved new r2_table to ", .r2_rds)
+  }
   
 
   ## ---- cleanup helpers (keep only model objects + r2_table + path vars) ----
   rm(list = c(".pri_bin",".pri_ord",".pri_wide",
               ".bin_rds",".ord_rds",".cos_org_rds", ".cos_com_rds",
-              ".m_ord_cos_rds",".m_bin_cos_rds",".m_bin_jud_rds",".m_cos_jud_rds"))
+              ".m_ord_cos_rds",".m_bin_cos_rds",".m_bin_jud_rds",".m_cos_jud_rds", ".r2_rds"))
 }
 ```
 
@@ -658,8 +591,8 @@ get_stim_preds <- function(fit, label) {
 }
 
 stim_both <- bind_rows(
-  get_stim_preds(fit_cos_original, "Original scale"),
-  get_stim_preds(fit_cos_scaled, "Rescaled")
+  get_stim_preds(fit_cos_org, "Original scale"),
+  get_stim_preds(fit_cos_com, "Rescaled")
 )
 
 # Rank correlation (should be perfect)
@@ -729,7 +662,7 @@ get_ordinal_expected <- function(fit_ord, newdata) {
   stim_ordinal <- get_ordinal_expected(fit_ord, nd_stim) %>%
     mutate(measure = "Judged")
   
-  stim_cosine <- fitted(fit_cos_scaled, newdata = nd_stim,
+  stim_cosine <- fitted(fit_cos_com, newdata = nd_stim,
                         re_formula = ~(1|stimulus_concept),
                         summary = TRUE) %>%
     as_tibble() %>%
@@ -782,10 +715,9 @@ ggplot(all_measures, aes(x = Estimate, y = stimulus, color = measure)) +
                  height = 0.2,
                  position = position_dodge(width = 0.5)) +
   facet_wrap(~ category, scales = "free_y", ncol = 2) +
-  scale_color_brewer(palette = "Dark2", name = "Evaluation lens") +
+  scale_color_brewer(palette = "Dark2", name = "Evaluation") +
   scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
-  labs(x = "Posterior mean μ [0,1]", y = NULL,
-       title = "Three lenses reveal nested semantic landscapes") +
+  labs(x = "Posterior mean μ [0,1]", y = NULL) +
   theme_minimal(base_size = 11)
 ```
 
@@ -812,9 +744,7 @@ ggplot(success_counts, aes(x = threshold, y = n_above, color = measure)) +
   scale_color_brewer(palette = "Dark2", name = "Evaluation lens") +
   scale_x_continuous(breaks = thresholds) +
   labs(x = "Success threshold (μ)", 
-       y = "Number of stimuli above threshold",
-       title = "Cosine lens is most permissive, binary most restrictive",
-       subtitle = "More stimuli 'succeed' under distributional similarity") +
+       y = "Number of stimuli above threshold") +
   theme_minimal(base_size = 12)
 ```
 
@@ -859,12 +789,12 @@ subcat_gaps %>%
   scale_color_brewer(palette = "Dark2", name = "Contrast") +
   scale_size_continuous(range = c(2, 6), name = "N stimuli") +
   labs(x = "Gap in μ (positive = second measure more permissive)",
-       y = NULL,
-       title = "Progressive inclusivity across evaluation lenses")
+       y = NULL)
 ```
 
 Critical Code Block: Getting Ordinal Expected Values
 If the above get_ordinal_expected() function doesn't work with your brms version, here's a more robust alternative:
+
 ```{r}
 # Alternative method using posterior_predict
 get_ordinal_expected_v2 <- function(fit_ord, newdata) {
@@ -894,810 +824,6 @@ stim_ord_v2 <- get_ordinal_expected_v2(fit_ord, nd_stim)
 
 # Should be highly correlated (might differ slightly)
 cor(stim_ord_v1$Estimate, stim_ord_v2$Estimate)
-```
-
-
-## Compromise (for Protolang)
-
-Compromise to meet computational time.
-
--   We keep the 1’s from cosine similarity conceptually (they’re just ε
-    below 1 for Beta math), preserving order and near-perfect matches.
-    Also rescaling to the true 0-1 range (not positively skewed with
-    much higher mean due to the nature of thecosine similarity scale).
-
--   **All three outcomes on comparable 0–1 scales (binary 0/1, judged
-    0–1, cosine ε-open (0,1))**, so the per-stimulus posterior means can
-    be min–max rescaled to overlay the three “landscapes” directly (same
-    axis).
-
--   Fast & robust: **Bernoulli + Gaussian + Beta** are far lighter than
-    cumulative + ZOIB at N=25k, but they still answer the main question:
-    the measures are related but not identical, visible in the differing
-    shapes/ranks of stim_landscapes_scaled.
-
--   **Priors:** Weakly informative on intercepts and group-level SDs
-    (stabilize estimates, avoid overfitting).
-
--   **Sampling:** 4 chains, 8000 iterations (4000 warmup), with
-    `adapt_delta = 0.98–0.99` and `max_treedepth = 12–13` for
-    robustness.
-
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-{
-  set.seed(1708)
-
-  ## ---------- ensure models dir exists ----------
-  if (!dir.exists(models)) dir.create(models, recursive = TRUE, showWarnings = FALSE)
-
-  ## ---------- COMPLETE-CASE DATA (based on cosine) ----------
-  # Rationale: use the same rows for all three outcomes to enable direct comparability
-  df_cc <- subset(df, !is.na(cosine_rescaled))
-  if (!"ord_norm" %in% names(df_cc)) df_cc$ord_norm <- df_cc$judged_similarity / 3
-
-  df_cc$participant      <- factor(df_cc$participant)
-  df_cc$stimulus_concept <- factor(df_cc$stimulus_concept)
-
-  ## Keep exact-1 spike info for reporting (from original column but CC rows)
-  ones_table_stim <- aggregate(I(df_cc$cosine_rescaled == 1) ~ stimulus_concept, data = df_cc, FUN = mean)
-  names(ones_table_stim) <- c("stimulus_concept", "one_rate")
-
-  ## ---------- Cosine transform: epsilon-open + unit-stretch ----------
-  eps  <- 1e-10
-  tiny <- 1e-12
-  x    <- df_cc$cosine_rescaled
-  x_open <- pmin(pmax(x - eps, tiny), 1 - tiny)
-  xmin <- min(x_open, na.rm = TRUE); xmax <- max(x_open, na.rm = TRUE); span <- xmax - xmin
-  if (!is.finite(span) || span <= 0) stop("Cosine span after opening is zero; cannot scale.")
-  df_cc$cosine_unit_open <- pmin(pmax((x_open - xmin) / span, tiny), 1 - tiny)
-
-  ## ---------- very wide priors (intercept + RE sd only) ----------
-  .pri_intercepts_only <- c(
-    set_prior("normal(0, 5)", class = "Intercept"),
-    set_prior("student_t(3, 0, 5)", class = "sd")
-  )
-
-  ## =================================================================
-  ##                           BASELINES (fast, CC)
-  ## =================================================================
-  ctrl_strict <- list(adapt_delta = 0.99, max_treedepth = 13)
-
-  ## 1) Binary (Bernoulli) on df_cc
-  .bin_cc_rds <- file.path(models, "fit_bin_cc.rds")
-  if (file.exists(.bin_cc_rds)) {
-    fit_bin_cc <- readRDS(.bin_cc_rds)
-  } else {
-    fit_bin_cc <- brm(
-      binary_guess ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
-      data    = df_cc,
-      family  = bernoulli(),
-      prior   = .pri_intercepts_only,
-      chains  = 4, iter = 8000, warmup = 4000,
-      control = ctrl_strict,
-      seed    = 1708, refresh = 100,
-      save_pars = save_pars(all = TRUE)
-    )
-    saveRDS(fit_bin_cc, .bin_cc_rds, compress = "xz")
-  }
-
-  ## 2) Judged (Gaussian 0–1) on df_cc
-  .ord_cc_rds <- file.path(models, "fit_ord_gauss_cc.rds")
-  if (file.exists(.ord_cc_rds)) {
-    fit_ord_gauss_cc <- readRDS(.ord_cc_rds)
-  } else {
-    fit_ord_gauss_cc <- brm(
-      ord_norm ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
-      data    = df_cc,
-      family  = gaussian(),
-      prior   = .pri_intercepts_only,
-      chains  = 4, iter = 8000, warmup = 4000,
-      control = ctrl_strict,
-      seed    = 1708, refresh = 100,
-      save_pars = save_pars(all = TRUE)
-    )
-    saveRDS(fit_ord_gauss_cc, .ord_cc_rds, compress = "xz")
-  }
-
-  ## 3) Cosine (Beta on unit-stretched) on df_cc
-  .cos_cc_rds <- file.path(models, "fit_cos_beta_unit_cc.rds")
-  if (file.exists(.cos_cc_rds)) {
-    fit_cos_beta_cc <- readRDS(.cos_cc_rds)
-  } else {
-    fit_cos_beta_cc <- brm(
-      cosine_unit_open ~ 1 + (1|p|participant) + (1|s|stimulus_concept),
-      data    = df_cc,
-      family  = Beta(),
-      prior   = .pri_intercepts_only,
-      chains  = 4, iter = 8000, warmup = 4000,
-      control = ctrl_strict,
-      seed    = 1708, refresh = 100,
-      save_pars = save_pars(all = TRUE)
-    )
-    saveRDS(fit_cos_beta_cc, .cos_cc_rds, compress = "xz")
-  }
-
-  ## ================== ROBUST R² (cache to RDS) ==================
-  .recalc_r2 <- FALSE  # set TRUE to force recomputation
-
-  .r2_tbl_rds <- file.path(models, "r2_table_cc.rds")
-  .r2_bin_rds <- file.path(models, "r2_draws_bin_cc.rds")
-  .r2_ord_rds <- file.path(models, "r2_draws_ord_cc.rds")
-  .r2_cos_rds <- file.path(models, "r2_draws_cos_cc.rds")
-
-  if (!.recalc_r2 &&
-      file.exists(.r2_tbl_rds) &&
-      file.exists(.r2_bin_rds) &&
-      file.exists(.r2_ord_rds) &&
-      file.exists(.r2_cos_rds)) {
-
-    r2_bin <- readRDS(.r2_bin_rds)
-    r2_ord <- readRDS(.r2_ord_rds)
-    r2_cos <- readRDS(.r2_cos_rds)
-    r2_table_cc <- readRDS(.r2_tbl_rds)
-
-  } else {
-
-    r2_bin <- bayes_R2(fit_bin_cc)       # numeric vector of draws
-    r2_ord <- bayes_R2(fit_ord_gauss_cc)
-    r2_cos <- bayes_R2(fit_cos_beta_cc)
-
-    saveRDS(r2_bin, .r2_bin_rds)
-    saveRDS(r2_ord, .r2_ord_rds)
-    saveRDS(r2_cos, .r2_cos_rds)
-
-    .summ <- function(x) c(Estimate = mean(x),
-                           `Q2.5`   = as.numeric(quantile(x, .025)),
-                           `Q97.5`  = as.numeric(quantile(x, .975)))
-    r2_table_cc <- rbind(.summ(r2_bin), .summ(r2_ord), .summ(r2_cos))
-    r2_table_cc <- as.data.frame(r2_table_cc)
-    r2_table_cc <- tibble::rownames_to_column(r2_table_cc, "Model")
-    r2_table_cc <- dplyr::mutate(r2_table_cc, dplyr::across(where(is.numeric), ~round(.x, 3)))
-    r2_table_cc$Model <- c("Binary (Bernoulli, CC)",
-                           "Judged (Gaussian 0–1, CC)",
-                           "Cosine (Beta, unit-stretched, CC)")
-
-    saveRDS(r2_table_cc, .r2_tbl_rds)
-  }
-
-  print(r2_table_cc)
-
-  ## ================== PER-STIMULUS POSTERIOR MEANS (CC) ==================
-  stim_levels_cc <- levels(df_cc$stimulus_concept)
-  new_stim_cc <- data.frame(stimulus_concept = stim_levels_cc)
-
-  # Binary: marginal over participant; keep only stimulus RE
-  bin_pred <- as.data.frame(
-    fitted(fit_bin_cc, newdata = new_stim_cc, re_formula = ~(1|s|stimulus_concept), summary = TRUE)
-  )
-  bin_stim <- data.frame(stimulus_concept = stim_levels_cc, bin_mean = bin_pred$Estimate)
-
-  # Judged (Gaussian)
-  ord_pred <- as.data.frame(
-    fitted(fit_ord_gauss_cc, newdata = new_stim_cc, re_formula = ~(1|s|stimulus_concept), summary = TRUE)
-  )
-  ord_stim <- data.frame(stimulus_concept = stim_levels_cc, ord_mean = ord_pred$Estimate)
-
-  # Cosine (Beta)
-  cos_pred <- as.data.frame(
-    fitted(fit_cos_beta_cc, newdata = new_stim_cc, re_formula = ~(1|s|stimulus_concept), summary = TRUE)
-  )
-  cos_stim <- data.frame(stimulus_concept = stim_levels_cc, cos_mean = cos_pred$Estimate)
-
-  # Merge + add spike info (computed on CC rows)
-  suppressWarnings({
-    stim_landscapes_cc <- dplyr::left_join(bin_stim, ord_stim, by = "stimulus_concept") |>
-      dplyr::left_join(cos_stim, by = "stimulus_concept") |>
-      dplyr::left_join(ones_table_stim, by = "stimulus_concept")
-  })
-
-  # Min–max rescale summaries (for plotting; does not affect models)
-  mm <- function(v) (v - min(v, na.rm = TRUE)) / (max(v, na.rm = TRUE) - min(v, na.rm = TRUE))
-  stim_landscapes_cc_scaled <- transform(
-    stim_landscapes_cc,
-    bin_mm = mm(bin_mean),
-    ord_mm = mm(ord_mean),
-    cos_mm = mm(cos_mean)
-  )
-
-  ## ---------- keep useful objects ----------
-  assign("df_cc", df_cc, inherits = FALSE)
-  assign("fit_bin_cc", fit_bin_cc, inherits = FALSE)
-  assign("fit_ord_gauss_cc", fit_ord_gauss_cc, inherits = FALSE)
-  assign("fit_cos_beta_cc", fit_cos_beta_cc, inherits = FALSE)
-  assign("r2_table_cc", r2_table_cc, inherits = FALSE)
-  assign("r2_draws_cc", list(Binary = r2_bin, Judged = r2_ord, Cosine = r2_cos), inherits = FALSE)
-  assign("stim_landscapes_cc", stim_landscapes_cc, inherits = FALSE)
-  assign("stim_landscapes_cc_scaled", stim_landscapes_cc_scaled, inherits = FALSE)
-
-  ## ---------- cleanup helpers ----------
-  rm(.pri_intercepts_only, .bin_cc_rds, .ord_cc_rds, .cos_cc_rds,
-     .r2_tbl_rds, .r2_bin_rds, .r2_ord_rds, .r2_cos_rds,
-     .r2_summ, stim_levels_cc, new_stim_cc, bin_pred, ord_pred, cos_pred, mm,
-     ones_table_stim, eps, tiny, x, x_open, xmin, xmax, span, ctrl_strict)
-}
-```
-
-### Extract results
-
-Bayesian R² for each fitted model using bayes_R2(). This is a quick,
-comparable goodness-of-fit summary.
-
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-r2_table_cc
-```
-
-Posterior predictive checks for all three models, shown side-by-side for
-quick visual comparison. If patchwork is available we combine them
-horizontally; otherwise they will print one after another.
-
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-suppressWarnings(has_patchwork <- requireNamespace("patchwork", quietly = TRUE))
-
-p_bin  <- pp_check(fit_bin_cc,       ndraws = 200) + ggtitle("Binary (Bernoulli)")
-p_gaus <- pp_check(fit_ord_gauss_cc, ndraws = 200) + ggtitle("Judged (Gaussian 0–1)")
-p_beta <- pp_check(fit_cos_beta_cc,  ndraws = 200) + ggtitle("Cosine (Beta)")
-
-if (has_patchwork) {
-  patchwork::wrap_plots(p_bin, p_gaus, p_beta, ncol = 3)
-} else {
-  print(p_bin); print(p_gaus); print(p_beta)
-}
-```
-
-### Posteriors visualized
-
-Goal of this section:
-
--   Extract posterior draws of the *population-level* mean (μ) for each
-    model, on the OUTCOME scale (probability for Bernoulli, 0–1 scale
-    for Gaussian/Beta).
-
--   Summarize μ for each model (mean/median/95% CrI) for the manuscript
-    table.
-
--   Compute pairwise posterior probabilities that one model’s μ exceeds
-    another, plus the posterior on their differences.
-
-Why re_formula = NA?
-
-It drops all random effects so we get the population-level intercept
-(μ), i.e., the grand mean across participants and stimuli on the outcome
-scale. We pass a single valid row from df_cc as 'newdata' just to anchor
-factor levels; with re_formula = NA that row's values don't affect μ.
-
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-# Descriptive posterior summaries for intercepts (μ) + pairwise probabilities
-
-# --- Helper: posterior draws of μ on outcome scale (drop all REs)
-.post_mu_draws <- function(fit, label, ref_row = 1) {
-  # We ask brms for the mean of the likelihood (fitted), not raw draws of y,
-  # and we want *all draws*, hence summary = FALSE.
-  # For Bernoulli this is P(Y=1); for Gaussian(0–1) it is the expected value;
-  # for Beta it is the expected mean on the 0–1 scale.
-  mu <- fitted(fit, newdata = df_cc[ref_row, , drop = TRUE],
-               re_formula = NA, summary = FALSE)
-  tibble(model = label, mu = as.numeric(mu))
-}
-
-# --- Get/assemble draws (ordered Binary -> Judged -> Cosine)
-mu_draws <- bind_rows(
-  .post_mu_draws(fit_bin_cc,       "Binary guess"),
-  .post_mu_draws(fit_ord_gauss_cc, "Judged similarity"),
-  .post_mu_draws(fit_cos_beta_cc,  "Cosine similarity")
-) %>%
-  mutate(model = factor(model,
-                        levels = c("Binary guess", "Judged similarity", "Cosine similarity")))
-
-# --- Manuscript-ready summary of μ (posterior mean, median, 95% CrI)
-# We summarize across posterior draws within each model. Numbers are on the
-# outcome scale, so the three μ's are directly comparable as "average level"
-# of each metric (e.g., average hit rate, average judged similarity 0–1, etc.).
-mu_summary <- mu_draws %>%
-  group_by(model) %>%
-  summarise(
-    mean   = mean(mu),
-    median = median(mu),
-    `Q2.5` = quantile(mu, .025),
-    `Q97.5`= quantile(mu, .975),
-    .groups = "drop"
-  )
-
-# Optional: friendly formatting for tiny numbers
-fmt_num <- function(x) {
-  out <- ifelse(x < 0.001, formatC(x, format = "e", digits = 2),
-                ifelse(x < 0.01,  formatC(x, format = "f", digits = 3),
-                                 formatC(x, format = "f", digits = 3)))
-  as.character(out)
-}
-
-mu_summary_print <- mu_summary %>%
-  mutate(across(where(is.numeric), fmt_num)) %>%
-  rename(`Model` = model,
-         `Mean μ` = mean, `Median μ` = median,
-         `2.5%` = `Q2.5`, `97.5%` = `Q97.5`)
-
-cat("\nIntercept (population mean μ on outcome scale) — posterior summaries:\n")
-knitr::kable(mu_summary_print, align = "lcccc")
-
-# --- Pairwise comparisons between μ's
-# We compare the *same-iteration* scale (posterior draws) of the μ's across models.
-# For each pair we compute:
-#   - P(Second > First): posterior probability that μ_second exceeds μ_first
-#   - Posterior on the difference (Second - First): median and 95% CrI
-# Interpretation: This is *not* a null-hypothesis test; it’s a direct Bayesian
-# probability statement about contrasts of population means on the outcome scale.
-set.seed(1708)
-
-get_draws_for <- function(lbl) filter(mu_draws, model == lbl) %>% pull(mu)
-
-d_bin  <- get_draws_for("Binary guess")
-d_judg <- get_draws_for("Judged similarity")
-d_cos  <- get_draws_for("Cosine similarity")
-
-# We align lengths by random pairing (if needed) to avoid recycling; this keeps
-# contrasts unbiased even if the upstream models had different numbers of draws.
-pair_prob <- function(x, y, n = 10000L) {
-  n <- min(length(x), length(y), n)
-  ix <- sample(seq_along(x), n, replace = length(x) < n)
-  iy <- sample(seq_along(y), n, replace = length(y) < n)
-  dx <- y[iy] - x[ix]               # positive => y > x
-  tibble(
-    n = n,
-    diff_median = median(dx),
-    diff_q2.5   = quantile(dx, .025),
-    diff_q97.5  = quantile(dx, .975),
-    P_y_gt_x    = mean(dx > 0)
-  )
-}
-
-cmp_list <- list(
-  `Judged − Binary` = pair_prob(d_bin, d_judg),
-  `Cosine − Binary` = pair_prob(d_bin, d_cos),
-  `Cosine − Judged` = pair_prob(d_judg, d_cos)
-)
-
-pairwise_summary <- bind_rows(cmp_list, .id = "Comparison")
-
-# Friendly printout
-pairwise_print <- pairwise_summary %>%
-  mutate(
-    across(c(diff_median, diff_q2.5, diff_q97.5), fmt_num),
-    `P(Second > First)` = formatC(P_y_gt_x, format = "f", digits = 3)
-  ) %>%
-  select(Comparison,
-         `P(Second > First)`,
-         `Diff median` = diff_median,
-         `Diff 2.5%`   = diff_q2.5,
-         `Diff 97.5%`  = diff_q97.5,
-         n)
-
-cat("\nPairwise comparisons of intercepts μ (posterior on differences and probabilities):\n")
-knitr::kable(pairwise_print, align = "lccccr")
-
-# --- Keep tidy objects for later use/exports
-assign("mu_draws",    mu_draws,    inherits = FALSE)
-assign("mu_summary",  mu_summary,  inherits = FALSE)
-assign("pairwise_summary", pairwise_summary, inherits = FALSE)
-
-```
-
-```{r posterior means, echo=FALSE, fig.align='left', fig.cap=capFig("Posterior draws of the global mean (intercept on the outcome scale) for each model, plotted together in one figure."), fig.height=5, fig.width=6, message=FALSE, warning=FALSE}
-# Intercept (population mean μ on outcome scale) — ordered plot
-
-.post_mu_draws <- function(fit, label, ref_row = 1) {
-  mu <- fitted(fit, newdata = df_cc[ref_row, , drop = TRUE],
-               re_formula = NA, summary = FALSE)
-  tibble(model = label, mu = as.numeric(mu))
-}
-
-mu_draws <- bind_rows(
-  .post_mu_draws(fit_bin_cc,       "Binary guess"),
-  .post_mu_draws(fit_ord_gauss_cc, "Judged similarity"),
-  .post_mu_draws(fit_cos_beta_cc,  "Cosine similarity")
-) %>%
-  mutate(model = factor(model,
-                        levels = c("Cosine similarity",
-                                   "Judged similarity",
-                                   "Binary guess")))
-
-mu_summ <- mu_draws %>%
-  group_by(model) %>%
-  summarise(med = median(mu),
-            lo  = quantile(mu, .025),
-            hi  = quantile(mu, .975),
-            .groups = "drop")
-
-ggplot(mu_draws, aes(x = mu, y = model)) +
-  geom_violin(fill = "grey85", color = "grey40", width = 0.9, trim = TRUE) +
-  geom_point(data = mu_summ, aes(x = med, y = model), size = 2) +
-  geom_segment(data = mu_summ, aes(x = lo, xend = hi, y = model, yend = model),
-               linewidth = 0.8) +
-  scale_x_continuous(limits = c(0,1), breaks = seq(0,1,.2)) +
-  labs(x = "μ on outcome scale [0,1]", y = NULL)
-```
-
-#### Stimuli
-
-```{r eval=TRUE, message=FALSE, warning=FALSE, include=FALSE}
-# per-stimulus posterior means + join to cats
-nd_stim <- data.frame(stimulus_concept = levels(df_cc$stimulus_concept))
-
-.get_stim <- function(fit, label) {
-  f <- fitted(fit, newdata = nd_stim,
-              re_formula = ~(1|s|stimulus_concept), summary = TRUE)
-  tibble::tibble(
-    meaning = nd_stim$stimulus_concept,
-    mean = f[, "Estimate"],
-    lo   = f[, "Q2.5"],
-    hi   = f[, "Q97.5"],
-    measure = label
-  )
-}
-
-stim_means <- bind_rows(
-  .get_stim(fit_bin_cc,       "Binary guess"),
-  .get_stim(fit_ord_gauss_cc, "Judged similarity"),
-  .get_stim(fit_cos_beta_cc,  "Cosine similarity")
-) %>%
-  left_join(cats, by = "meaning") %>%
-  mutate(
-    measure = factor(measure, levels = c("Binary guess", "Judged similarity", "Cosine similarity")),
-    category = factor(category, levels = c("noun","property","demonstrative","action"))
-  )
-```
-
-```{r heatmap stimuli, echo=FALSE, fig.align='left', fig.cap=capFig("Posterior means per stimulus on the raw outcome scale (μ). Rows = stimuli, columns = outcome measure. Stimuli grouped by semantic category."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
-ggplot(stim_means, aes(x = measure, y = meaning, fill = mean)) +
-  geom_tile(color = "white") +
-  facet_grid(category ~ ., scales = "free_y", space = "free_y") +
-  scale_fill_viridis_c(limits = c(0,1)) +
-  labs(x = NULL, y = NULL, fill = "μ") +
-  theme_minimal(base_size = 11) +
-  theme(panel.grid = element_blank())
-```
-
-```{r heatmap stimuli min-max, echo=FALSE, fig.align='left', fig.cap=capFig("Per-stimulus posterior means, min–max scaled within each outcome measure to emphasize relative patterns across stimuli."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
-stim_means_mm <- stim_means %>%
-  group_by(measure) %>%
-  mutate(mean_mm = (mean - min(mean))/(max(mean)-min(mean))) %>%
-  ungroup()
-
-ggplot(stim_means_mm, aes(x = measure, y = meaning, fill = mean_mm)) +
-  geom_tile(color = "white") +
-  facet_grid(category ~ ., scales = "free_y", space = "free_y") +
-  scale_fill_viridis_c(name = "μ (min–max)") +
-  labs(x = NULL, y = NULL) +
-  theme_minimal(base_size = 11) +
-  theme(panel.grid = element_blank())
-```
-
-```{r lolipops stimuli, echo=FALSE, fig.align='left', fig.cap=capFig("Posterior means and 95% credible intervals per stimulus, separated by semantic category. Colors = outcome measures."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
-ggplot(stim_means, aes(x = mean, y = meaning, color = measure)) +
-  geom_point(position = position_dodge(width = 0.4)) +
-  geom_errorbarh(aes(xmin = lo, xmax = hi), height = 0.2,
-                 position = position_dodge(width = 0.4)) +
-  facet_wrap(~ category, scales = "free_y") +
-  scale_color_brewer(palette = "Dark2") +
-  labs(x = "Posterior mean μ [0–1]", y = NULL)
-```
-
-```{r subcategory boxplots stimuli, echo=FALSE, fig.align='left', fig.cap=capFig("Posterior means aggregated at the semantic subcategory level. Each box = distribution of stimulus means within a subcategory; colors = outcome measures."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
-ggplot(stim_means, aes(x = subcategory, y = mean, fill = measure)) +
-  geom_boxplot(outlier.shape = NA, alpha = 0.6, position = position_dodge(width = 0.8)) +
-  facet_wrap(~ category, scales = "free_x") +
-  labs(x = NULL, y = "Posterior mean μ [0–1]") +
-  theme_minimal(base_size = 11) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-```
-
-#### Participant
-
-```{r eval=TRUE, message=FALSE, warning=FALSE, include=FALSE}
-nd_part <- data.frame(participant = levels(df_cc$participant))
-
-.get_part <- function(fit, label) {
-  f <- fitted(fit, newdata = nd_part,
-              re_formula = ~(1|p|participant), summary = TRUE)
-  tibble::tibble(
-    participant = nd_part$participant,
-    mean = f[, "Estimate"],
-    measure = label
-  )
-}
-
-part_means <- bind_rows(
-  .get_part(fit_bin_cc,       "Binary guess"),
-  .get_part(fit_ord_gauss_cc, "Judged similarity"),
-  .get_part(fit_cos_beta_cc,  "Cosine similarity")
-) %>%
-  mutate(measure = factor(measure, levels = c("Binary guess", "Judged similarity", "Cosine similarity")))
-```
-
-```{r density participant, echo=FALSE, fig.align='left', fig.cap=capFig("Distributions of posterior means per participant across the three outcome measures."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
-ggplot(part_means, aes(x = mean)) +
-  geom_density(fill = "grey85", color = "grey40") +
-  facet_wrap(~ measure, nrow = 1, scales = "free_y") +
-  labs(x = "Posterior mean per participant (μ)", y = "Density")
-```
-
-```{r boxplot participant, echo=FALSE, fig.align='left', fig.cap=capFig("Distribution of posterior means per participant, shown as boxplots for each outcome measure."), fig.height=5, fig.width=6, message=FALSE, warning=FALSE}
-ggplot(part_means, aes(x = measure, y = mean, fill = measure)) +
-  geom_boxplot(alpha = 0.6) +
-  labs(x = NULL, y = "Posterior mean μ [0–1]")
-```
-
-### Semantic landscape
-
-```{r}
-stopifnot(exists("cats"), exists("df_cc"),
-          exists("fit_bin_cc"), exists("fit_ord_gauss_cc"), exists("fit_cos_beta_cc"))
-
-# helper: per-stimulus posterior mean on OUTCOME scale, stimulus RE only
-.get_stim <- function(fit, label) {
-  nd <- data.frame(stimulus_concept = levels(df_cc$stimulus_concept))
-  f  <- fitted(fit, newdata = nd, re_formula = ~(1|s|stimulus_concept), summary = TRUE)
-  tibble(
-    meaning = nd$stimulus_concept,
-    mean    = f[, "Estimate"],
-    lo      = f[, "Q2.5"],
-    hi      = f[, "Q97.5"],
-    measure = label
-  )
-}
-
-# long → wide with subcategory
-stim_means_long <- bind_rows(
-  .get_stim(fit_bin_cc,       "Binary guess"),
-  .get_stim(fit_ord_gauss_cc, "Judged similarity"),
-  .get_stim(fit_cos_beta_cc,  "Cosine similarity")
-) %>%
-  left_join(cats, by = "meaning")
-
-stim_means_wide <- stim_means_long %>%
-  select(meaning, subcategory, measure, mean) %>%
-  pivot_wider(names_from = measure, values_from = mean) %>%
-  rename(binary = `Binary guess`,
-         judged = `Judged similarity`,
-         cosine = `Cosine similarity`)
-
-# subcategory centroids (means across stimuli in each subcategory)
-subcat_wide <- stim_means_wide %>%
-  group_by(subcategory) %>%
-  summarise(
-    n_stim = dplyr::n(),
-    binary = mean(binary, na.rm = TRUE),
-    judged = mean(judged, na.rm = TRUE),
-    cosine = mean(cosine, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  mutate(
-    # contrasts (heights) that capture the "gaps" between lenses
-    cos_minus_jud = cosine - judged,   # distributional advantage over human-graded
-    jud_minus_bin = judged - binary,   # graded advantage over strict hits
-    dom = c("Binary","Judged","Cosine")[max.col(cbind(binary, judged, cosine), ties.method = "first")],
-    dom = factor(dom, levels = c("Binary","Judged","Cosine"))
-  )
-
-assign("stim_means_wide", stim_means_wide, inherits = FALSE)
-assign("subcat_wide", subcat_wide, inherits = FALSE)
-```
-
-For each subcategory, show two horizontal contrasts on a common zero
-line: Judged − Binary (how much graded ratings exceed strict hits) and
-Cosine − Judged (how much distributional proximity exceeds human
-ratings). This makes the “landscape differences” explicit and
-comparable. Subcategories are sorted by Cosine − Judged so the eye
-immediately catches where distributional semantics adds the most.
-
-Judged − Binary \> 0 → allowing graded human judgments uncovers
-structure ignored by exact hits.
-
-Cosine − Judged \> 0 → distributional proximity recognises
-neighborhood-level meaning beyond human “similarity” ratings.
-
-Both \> 0 → a clear gradient: Binary \< Judged \< Cosine for that
-subcategory.
-
-Negative values (no such cases) → the earlier lens explains more than
-the later one.
-
-```{r map A, echo=FALSE, fig.align='left', fig.cap=capFig("Subcategory Advantage Grid. For each subcategory, the right-facing bar shows Cosine − Judged (distributional advantage) and the left/right bar shows Judged − Binary (graded advantage over exact hits). Bars to the right of zero indicate the second measure exceeds the first. Point size encodes the number of stimuli in the subcategory. Interpretation: where both bars are large and positive, free-text responses are captured poorly by binary hits but progressively better by human grading and best by distributional proximity."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
-adv_long <- subcat_wide %>%
-  transmute(
-    subcategory, n_stim,
-    `Judged − Binary` = jud_minus_bin,
-    `Cosine − Judged` = cos_minus_jud
-  ) %>%
-  pivot_longer(cols = c(`Judged − Binary`, `Cosine − Judged`),
-               names_to = "contrast", values_to = "value")
-
-# order subcategories by Cosine − Judged (largest to smallest)
-ord <- subcat_wide %>% arrange(desc(cos_minus_jud)) %>% pull(subcategory)
-adv_long <- adv_long %>% mutate(subcategory = factor(subcategory, levels = ord))
-
-ggplot(adv_long, aes(x = value, y = subcategory, color = contrast)) +
-  geom_vline(xintercept = 0, linetype = 3, color = "grey60") +
-  geom_point(aes(size = n_stim), alpha = 0.9, position = position_dodge(width = 0.3)) +
-  geom_segment(aes(x = 0, xend = value, y = subcategory, yend = subcategory),
-               position = position_dodge(width = 0.3), linewidth = 0.9, alpha = 0.7) +
-  scale_color_brewer(palette = "Dark2", name = "Contrast") +
-  scale_size_continuous(range = c(2.5, 7), name = "Stimuli\nper subcategory") +
-  labs(x = "Difference on μ (outcome scale)", y = NULL)
-```
-
-```{r map B, echo=FALSE, fig.align='left', fig.cap=capFig("Semantic topography of similarity measures. The plot renders the difference between distributional (cosine) and human-judged similarity as a topographic surface in Judged (x) × Cosine (y) space. Blue “elevations” indicate regions where cosine similarity assigns higher values than human ratings, while red “depressions” show the reverse. The dashed line marks equality (Cos = Jud). Black-rimmed points are subcategory centroids, scaled by their Binary μ (proportion of exact matches). This visualization highlights how different measures carve out distinct semantic landscapes: binary exact hits are rare (small capitals), judged similarity introduces a gradient, and cosine expands the landscape further by capturing semantic neighborhoods beyond human ratings."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
-# --- ROBUST "Semantic Topography" (Cos − Jud) -------------------------------
-suppressPackageStartupMessages({
-  library(dplyr); library(ggplot2)
-  has_repel <- requireNamespace("ggrepel", quietly = TRUE)
-})
-
-stopifnot(exists("subcat_wide"))
-
-# 1) Clean data for surface
-surf_df <- subcat_wide %>%
-  transmute(judged = as.numeric(judged),
-            cosine = as.numeric(cosine),
-            elev   = as.numeric(cos_minus_jud)) %>%
-  tidyr::drop_na()
-
-# Safety: need at least 5 points with variation
-enough_pts <- nrow(distinct(surf_df, judged, cosine)) >= 5
-vary_elev  <- (is.finite(var(surf_df$elev)) && var(surf_df$elev) > 1e-8)
-
-# Axis ranges with padding, even if range is tiny
-rx <- range(surf_df$judged, na.rm = TRUE); dx <- diff(rx); if (!is.finite(dx) || dx <= 1e-6) { rx <- c(rx[1]-0.05, rx[1]+0.05) }
-ry <- range(surf_df$cosine, na.rm = TRUE); dy <- diff(ry); if (!is.finite(dy) || dy <= 1e-6) { ry <- c(ry[1]-0.05, ry[1]+0.05) }
-pad_x <- max(0.05, 0.08 * diff(rx)); pad_y <- max(0.05, 0.08 * diff(ry))
-
-# 2) Build grid and elevation by LOESS (fallback path)
-make_surface <- function() {
-  grid_x <- seq(rx[1] - pad_x, rx[2] + pad_x, length.out = 160)
-  grid_y <- seq(ry[1] - pad_y, ry[2] + pad_y, length.out = 160)
-  grid   <- expand.grid(judged = grid_x, cosine = grid_y)
-
-  if (enough_pts && vary_elev) {
-    fit <- loess(elev ~ judged * cosine, data = surf_df, span = 0.75, degree = 2,
-                 control = loess.control(surface = "interpolate", statistics = "approximate"))
-    grid$elev <- as.numeric(predict(fit, newdata = grid))
-  } else {
-    # Degenerate: constant (or nearly) — just use the mean as a flat surface
-    grid$elev <- mean(surf_df$elev, na.rm = TRUE)
-  }
-
-  grid %>% tidyr::drop_na()
-}
-
-elev_df <- make_surface()
-
-# 3) Color scale that always shows something: symmetric around 0
-rng_elev <- range(elev_df$elev[is.finite(elev_df$elev)], na.rm = TRUE)
-M <- max(abs(rng_elev), 0.05)  # ensure non-zero span
-fill_scale <- scale_fill_gradient2(
-  low = "#B2182B", mid = "white", high = "#2166AC",
-  midpoint = 0, limits = c(-M, M), name = "Cos − Jud"
-)
-
-# 4) Build the plot
-base <- ggplot() +
-  geom_raster(data = elev_df, aes(x = judged, y = cosine, fill = elev), alpha = 0.95) +
-  fill_scale +
-  geom_abline(slope = 1, intercept = 0, linetype = 3, color = "grey30") +
-  coord_equal(
-    xlim = c(rx[1] - pad_x, rx[2] + pad_x),
-    ylim = c(ry[1] - pad_y, ry[2] + pad_y),
-    expand = FALSE
-  ) +
-  labs(
-    x = "Judged similarity (μ)",
-    y = "Cosine similarity (μ)"
-  ) +
-  theme(panel.grid = element_blank())
-
-# 5) Add 0-ridge & contour bands only if there’s meaningful variation
-has_both_signs <- (min(elev_df$elev, na.rm = TRUE) < 0) && (max(elev_df$elev, na.rm = TRUE) > 0)
-if (has_both_signs) {
-  base <- base +
-    geom_contour(data = elev_df, aes(x = judged, y = cosine, z = elev),
-                 breaks = 0, color = "grey15", linewidth = 0.5, alpha = 0.8) +
-    geom_contour(data = elev_df, aes(x = judged, y = cosine, z = elev),
-                 bins = 8, color = "white", linewidth = 0.25, alpha = 0.35)
-}
-
-# 6) Capitals (subcategory centroids), size = Binary; labels
-capitals <- subcat_wide %>%
-  transmute(subcategory, judged, cosine, binary)
-
-p_topo <- base +
-  geom_point(data = capitals,
-             aes(x = judged, y = cosine, size = binary),
-             shape = 21, fill = "white", color = "black", stroke = 0.5, alpha = 0.96) +
-  scale_size_continuous(range = c(3, 8), name = "Binary (μ)")
-
-if (has_repel) {
-  p_topo <- p_topo +
-    ggrepel::geom_text_repel(
-      data = capitals, aes(x = judged, y = cosine, label = subcategory),
-      size = 3.1, show.legend = FALSE, max.overlaps = 100
-    )
-} else {
-  p_topo <- p_topo +
-    geom_text(
-      data = capitals, aes(x = judged, y = cosine, label = subcategory),
-      size = 3.1, vjust = -0.8, show.legend = FALSE
-    )
-}
-
-print(p_topo)
-```
-
-```{r map C, echo=FALSE, fig.align='left', fig.cap=capFig("Each subcategory’s centroid in Judged (x) × Cosine (y) becomes a “capital.” We tessellate the plane into Voronoi regions, coloring each “country” by Cosine − Judged (blue = distributional advantage; red = judged advantage). Point size shows Binary μ (strict hits), and labels name the subcategories. The dashed 45° line marks equality. This gives a true map where borders reflect which centroid is closest; visually, you get semantic “territories” defined by graded measures, with color/topography conveying which lens is more permissive."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
-# --- MAP C: Voronoi "countries" in Judged × Cosine space --------------------
-suppressPackageStartupMessages({
-  library(ggplot2); library(dplyr)
-  has_force <- requireNamespace("ggforce", quietly = TRUE)
-  has_repel <- requireNamespace("ggrepel", quietly = TRUE)
-})
-
-if (has_force) {
-  library(ggforce)
-
-  # Compute a loose bounding box for tiles
-  rng_x <- range(subcat_wide$judged, na.rm = TRUE)
-  rng_y <- range(subcat_wide$cosine, na.rm = TRUE)
-  pad_x <- diff(rng_x) * 0.08
-  pad_y <- diff(rng_y) * 0.08
-  xmin <- rng_x[1] - pad_x; xmax <- rng_x[2] + pad_x
-  ymin <- rng_y[1] - pad_y; ymax <- rng_y[2] + pad_y
-
-  p_voronoi <- ggplot(subcat_wide, aes(x = judged, y = cosine)) +
-    # Voronoi tiles colored by Cos−Jud
-    ggforce::geom_voronoi_tile(
-      aes(fill = cos_minus_jud),
-      bound = c(xmin, ymin, xmax, ymax),
-      alpha = 0.8, color = "white", linewidth = 0.4
-    ) +
-    # equality reference
-    geom_abline(slope = 1, intercept = 0, linetype = 3, color = "grey60") +
-    # Capitals: subcategory centroids
-    geom_point(aes(size = binary), shape = 21, fill = "white", color = "black", stroke = 0.5) +
-    { if (has_repel)
-        ggrepel::geom_text_repel(aes(label = subcategory), size = 3.1,
-                                 max.overlaps = 100, seed = 1708, box.padding = 0.3)
-      else
-        geom_text(aes(label = subcategory), size = 3.1, vjust = -0.8)
-    } +
-    scale_fill_distiller(
-      palette = "RdBu", direction = -1,
-      name = "Cos − Jud",
-      guide = guide_colorbar(title.position = "top")
-    ) +
-    scale_size_continuous(range = c(3, 8), name = "Binary (μ)") +
-    coord_equal(xlim = c(xmin, xmax), ylim = c(ymin, ymax), expand = FALSE) +
-    labs(
-      x = "Judged similarity (μ)",
-      y = "Cosine similarity (μ)"
-    ) +
-    theme(panel.grid = element_blank())
-
-  print(p_voronoi)
-
-} else {
-  message("Package 'ggforce' not installed. Install with install.packages('ggforce') to see the Voronoi map.")
-  # Fallback: simple scatter with colored background tiles omitted
-  ggplot(subcat_wide, aes(x = judged, y = cosine)) +
-    geom_abline(slope = 1, intercept = 0, linetype = 3, color = "grey60") +
-    geom_point(aes(color = cos_minus_jud, size = binary)) +
-    { if (has_repel) ggrepel::geom_text_repel(aes(label = subcategory), size = 3.1)
-      else geom_text(aes(label = subcategory), size = 3.1, vjust = -0.8) } +
-    scale_color_distiller(palette = "RdBu", direction = -1, name = "Cos − Jud") +
-    scale_size_continuous(range = c(3,8), name = "Binary (μ)") +
-    coord_equal() +
-    labs(x = "Judged similarity (μ)", y = "Cosine similarity (μ)",
-         title = "Subcategory map (fallback): points colored by Cos−Jud; size = Binary")
-}
-
 ```
 
 # Session info
