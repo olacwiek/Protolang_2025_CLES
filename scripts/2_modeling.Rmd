@@ -309,23 +309,124 @@ pearson_tbl %>%
   left_join(bf_tbl, by = "pair")
 ```
 
-# Variance of random factors
+# Descriptive statistics
 
-Explore the variance across all possible random factors:
+```{r}
+# Overall descriptive statistics
+desc_stats_overall <- df %>%
+  summarise(
+    # Binary
+    binary_mean = mean(binary_guess, na.rm = TRUE),
+    binary_sd = sd(binary_guess, na.rm = TRUE),
+    binary_n = sum(!is.na(binary_guess)),
+    
+    # Ordinal (judged similarity)
+    judged_mean = mean(judged_similarity, na.rm = TRUE),
+    judged_sd = sd(judged_similarity, na.rm = TRUE),
+    judged_median = median(judged_similarity, na.rm = TRUE),
+    judged_n = sum(!is.na(judged_similarity)),
+    
+    # Cosine
+    cosine_mean = mean(cosine_rescaled, na.rm = TRUE),
+    cosine_sd = sd(cosine_rescaled, na.rm = TRUE),
+    cosine_median = median(cosine_rescaled, na.rm = TRUE),
+    cosine_n = sum(!is.na(cosine_rescaled))
+  )
 
--   Environment
+desc_stats_overall
 
--   Input device
+# Save for manuscript
+#write_csv(desc_stats_overall, paste0(data, "descriptive_overall.csv"))
+```
 
--   Output device
 
--   Native language
+```{r}
+# Descriptive statistics by semantic category
+desc_stats_category <- df %>%
+  left_join(cats, by = c("stimulus_concept" = "meaning")) %>%
+  group_by(category, subcategory) %>%
+  summarise(
+    n_stimuli = n_distinct(stimulus_concept),
+    n_responses = n(),
+    
+    # Binary
+    binary_mean = mean(binary_guess, na.rm = TRUE),
+    binary_sd = sd(binary_guess, na.rm = TRUE),
+    binary_prop_correct = mean(binary_guess, na.rm = TRUE), # proportion correct
+    
+    # Ordinal
+    judged_mean = mean(judged_similarity, na.rm = TRUE),
+    judged_sd = sd(judged_similarity, na.rm = TRUE),
+    judged_median = median(judged_similarity, na.rm = TRUE),
+    judged_prop_2plus = mean(judged_similarity >= 2, na.rm = TRUE), # proportion rated similar or exact
+    
+    # Cosine
+    cosine_mean = mean(cosine_rescaled, na.rm = TRUE),
+    cosine_sd = sd(cosine_rescaled, na.rm = TRUE),
+    cosine_median = median(cosine_rescaled, na.rm = TRUE),
+    
+    .groups = "drop"
+  )
 
--   Participant
+desc_stats_category
 
--   Stimulus/concept
+# write_csv(desc_stats_category, paste0(data, "descriptive_by_category.csv"))
+```
 
--   Hearing disabilities
+
+```{r}
+# Descriptive statistics by individual stimulus
+desc_stats_stimulus <- df %>%
+  left_join(cats, by = c("stimulus_concept" = "meaning")) %>%
+  group_by(stimulus_concept, category, subcategory) %>%
+  summarise(
+    n_responses = n(),
+    
+    # Binary
+    binary_mean = mean(binary_guess, na.rm = TRUE),
+    binary_n_correct = sum(binary_guess == 1, na.rm = TRUE),
+    
+    # Ordinal
+    judged_mean = mean(judged_similarity, na.rm = TRUE),
+    judged_sd = sd(judged_similarity, na.rm = TRUE),
+    judged_median = median(judged_similarity, na.rm = TRUE),
+    
+    # Distribution across ordinal categories
+    judged_prop_0 = mean(judged_similarity == 0, na.rm = TRUE),
+    judged_prop_1 = mean(judged_similarity == 1, na.rm = TRUE),
+    judged_prop_2 = mean(judged_similarity == 2, na.rm = TRUE),
+    judged_prop_3 = mean(judged_similarity == 3, na.rm = TRUE),
+    
+    # Cosine
+    cosine_mean = mean(cosine_rescaled, na.rm = TRUE),
+    cosine_sd = sd(cosine_rescaled, na.rm = TRUE),
+    cosine_median = median(cosine_rescaled, na.rm = TRUE),
+    cosine_q25 = quantile(cosine_rescaled, 0.25, na.rm = TRUE),
+    cosine_q75 = quantile(cosine_rescaled, 0.75, na.rm = TRUE),
+    
+    .groups = "drop"
+  ) %>%
+  arrange(desc(cosine_mean))
+
+desc_stats_stimulus
+
+#write_csv(desc_stats_stimulus, paste0(data, "descriptive_by_stimulus.csv"))
+```
+
+
+```{r}
+# Create publication-ready table combining all measures
+desc_table_combined <- desc_stats_stimulus %>%
+  select(stimulus_concept, category, n_responses,
+         binary_mean, judged_mean, judged_median, 
+         cosine_mean, cosine_median) %>%
+  mutate(across(where(is.numeric) & !n_responses, ~round(., 3)))
+
+desc_table_combined
+
+#write_csv(desc_table_combined, paste0(data, "table_descriptive_combined.csv"))
+```
+
 
 # Modeling
 
@@ -348,8 +449,6 @@ account for individual and item-level heterogeneity.
 
 We fit baseline models for each of the three measures, with only
 random intercepts for participant, native language, and stimulus.
-
-Full solution. (Beware: It might take days.)
 
 ```{r eval=FALSE, message=FALSE, warning=FALSE}
 {
@@ -557,7 +656,34 @@ Full solution. (Beware: It might take days.)
 
 ## Extract results
 
-Compare the cosine similarity models on two scales
+### Convergence
+
+```{r}
+# ===== CONVERGENCE DIAGNOSTICS =====
+# Extract Rhat and ESS for checking model quality
+
+binary_diagnostics <- tibble(
+  model = "binary",
+  max_rhat = max(rhat(fit_bin)),
+  min_ess_bulk = min(neff_ratio(fit_bin))
+)
+
+ordinal_diagnostics <- tibble(
+  model = "ordinal",
+  max_rhat = max(rhat(fit_ord)),
+  min_ess_bulk = min(neff_ratio(fit_ord))
+)
+
+cosine_diagnostics <- tibble(
+  model = "cosine",
+  max_rhat = max(rhat(fit_cos)),
+  min_ess_bulk = min(neff_ratio(fit_cos))
+)
+
+diagnostics_all <- bind_rows(binary_diagnostics, ordinal_diagnostics, cosine_diagnostics)
+```
+
+### Cosine scale verification
 
 ```{r}
 # Extract stimulus posteriors from both models
@@ -607,6 +733,100 @@ ggplot(stim_wide, aes(x = `Original scale`, y = `Rescaled`)) +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE) +
   labs(title = "Stimulus rankings preserved by rescaling")
+```
+
+### Model summaries
+
+```{r}
+# Binary model summary
+binary_summary <- summary(fit_bin)
+binary_r2 <- bayes_R2(fit_bin)
+
+binary_results <- tibble(
+  parameter = c("Intercept", "SD_participant", "SD_stimulus"),
+  mean = c(
+    fixef(fit_bin)[1, "Estimate"],
+    VarCorr(fit_bin)$participant$sd[1, "Estimate"],
+    VarCorr(fit_bin)$stimulus_concept$sd[1, "Estimate"]
+  ),
+  ci_lower = c(
+    fixef(fit_bin)[1, "Q2.5"],
+    VarCorr(fit_bin)$participant$sd[1, "Q2.5"],
+    VarCorr(fit_bin)$stimulus_concept$sd[1, "Q2.5"]
+  ),
+  ci_upper = c(
+    fixef(fit_bin)[1, "Q97.5"],
+    VarCorr(fit_bin)$participant$sd[1, "Q97.5"],
+    VarCorr(fit_bin)$stimulus_concept$sd[1, "Q97.5"]
+  )
+)
+
+binary_results$r2_mean <- mean(binary_r2[, "R2"])
+binary_results$r2_ci_lower <- quantile(binary_r2[, "R2"], 0.025)
+binary_results$r2_ci_upper <- quantile(binary_r2[, "R2"], 0.975)
+
+binary_results
+```
+
+
+```{r}
+# Ordinal model summary
+ordinal_summary <- summary(fit_ord)
+ordinal_r2 <- bayes_R2(fit_ord)
+
+ordinal_results <- tibble(
+  parameter = c(paste0("Threshold_", 0:2), "SD_participant", "SD_stimulus"),
+  mean = c(
+    fixef(fit_ord)[, "Estimate"],
+    VarCorr(fit_ord)$participant$sd[1, "Estimate"],
+    VarCorr(fit_ord)$stimulus_concept$sd[1, "Estimate"]
+  ),
+  ci_lower = c(
+    fixef(fit_ord)[, "Q2.5"],
+    VarCorr(fit_ord)$participant$sd[1, "Q2.5"],
+    VarCorr(fit_ord)$stimulus_concept$sd[1, "Q2.5"]
+  ),
+  ci_upper = c(
+    fixef(fit_ord)[, "Q97.5"],
+    VarCorr(fit_ord)$participant$sd[1, "Q97.5"],
+    VarCorr(fit_ord)$stimulus_concept$sd[1, "Q97.5"]
+  )
+)
+
+ordinal_results
+```
+
+
+
+
+```{r}
+# Cosine model summary
+cosine_summary <- summary(fit_cos)
+cosine_r2 <- bayes_R2(fit_cos)
+
+cosine_results <- tibble(
+  parameter = c("Intercept_mu", "Phi", "SD_participant", "SD_stimulus"),
+  mean = c(
+    fixef(fit_cos)[1, "Estimate"],
+    summary(fit_cos)$spec_pars[1, "Estimate"], # phi parameter
+    VarCorr(fit_cos)$participant$sd[1, "Estimate"],
+    VarCorr(fit_cos)$stimulus_concept$sd[1, "Estimate"]
+  ),
+  ci_lower = c(
+    fixef(fit_cos)[1, "Q2.5"],
+    summary(fit_cos)$spec_pars[1, "Q2.5"],
+    VarCorr(fit_cos)$participant$sd[1, "Q2.5"],
+    VarCorr(fit_cos)$stimulus_concept$sd[1, "Q2.5"]
+  ),
+  ci_upper = c(
+    fixef(fit_cos)[1, "Q97.5"],
+    summary(fit_cos)$spec_pars[1, "Q97.5"],
+    VarCorr(fit_cos)$participant$sd[1, "Q97.5"],
+    VarCorr(fit_cos)$stimulus_concept$sd[1, "Q97.5"]
+  )
+)
+
+cosine_results
 ```
 
 ### Compare outcome scales (pasted from claude just like that)
