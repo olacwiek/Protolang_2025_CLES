@@ -259,6 +259,8 @@ pearson_tbl <- tibble(
         cor(dat_cor$cosine, dat_cor$binary),
         cor(dat_cor$judged, dat_cor$binary))
 )
+
+pearson_tbl
 ```
 
 Bayesian correlations via BayesFactor (Point-biserial is just Pearson on
@@ -309,124 +311,6 @@ pearson_tbl %>%
   left_join(bf_tbl, by = "pair")
 ```
 
-# Descriptive statistics
-
-```{r}
-# Overall descriptive statistics
-desc_stats_overall <- df %>%
-  summarise(
-    # Binary
-    binary_mean = mean(binary_guess, na.rm = TRUE),
-    binary_sd = sd(binary_guess, na.rm = TRUE),
-    binary_n = sum(!is.na(binary_guess)),
-    
-    # Ordinal (judged similarity)
-    judged_mean = mean(judged_similarity, na.rm = TRUE),
-    judged_sd = sd(judged_similarity, na.rm = TRUE),
-    judged_median = median(judged_similarity, na.rm = TRUE),
-    judged_n = sum(!is.na(judged_similarity)),
-    
-    # Cosine
-    cosine_mean = mean(cosine_rescaled, na.rm = TRUE),
-    cosine_sd = sd(cosine_rescaled, na.rm = TRUE),
-    cosine_median = median(cosine_rescaled, na.rm = TRUE),
-    cosine_n = sum(!is.na(cosine_rescaled))
-  )
-
-desc_stats_overall
-
-# Save for manuscript
-#write_csv(desc_stats_overall, paste0(data, "descriptive_overall.csv"))
-```
-
-
-```{r}
-# Descriptive statistics by semantic category
-desc_stats_category <- df %>%
-  left_join(cats, by = c("stimulus_concept" = "meaning")) %>%
-  group_by(category, subcategory) %>%
-  summarise(
-    n_stimuli = n_distinct(stimulus_concept),
-    n_responses = n(),
-    
-    # Binary
-    binary_mean = mean(binary_guess, na.rm = TRUE),
-    binary_sd = sd(binary_guess, na.rm = TRUE),
-    binary_prop_correct = mean(binary_guess, na.rm = TRUE), # proportion correct
-    
-    # Ordinal
-    judged_mean = mean(judged_similarity, na.rm = TRUE),
-    judged_sd = sd(judged_similarity, na.rm = TRUE),
-    judged_median = median(judged_similarity, na.rm = TRUE),
-    judged_prop_2plus = mean(judged_similarity >= 2, na.rm = TRUE), # proportion rated similar or exact
-    
-    # Cosine
-    cosine_mean = mean(cosine_rescaled, na.rm = TRUE),
-    cosine_sd = sd(cosine_rescaled, na.rm = TRUE),
-    cosine_median = median(cosine_rescaled, na.rm = TRUE),
-    
-    .groups = "drop"
-  )
-
-desc_stats_category
-
-# write_csv(desc_stats_category, paste0(data, "descriptive_by_category.csv"))
-```
-
-
-```{r}
-# Descriptive statistics by individual stimulus
-desc_stats_stimulus <- df %>%
-  left_join(cats, by = c("stimulus_concept" = "meaning")) %>%
-  group_by(stimulus_concept, category, subcategory) %>%
-  summarise(
-    n_responses = n(),
-    
-    # Binary
-    binary_mean = mean(binary_guess, na.rm = TRUE),
-    binary_n_correct = sum(binary_guess == 1, na.rm = TRUE),
-    
-    # Ordinal
-    judged_mean = mean(judged_similarity, na.rm = TRUE),
-    judged_sd = sd(judged_similarity, na.rm = TRUE),
-    judged_median = median(judged_similarity, na.rm = TRUE),
-    
-    # Distribution across ordinal categories
-    judged_prop_0 = mean(judged_similarity == 0, na.rm = TRUE),
-    judged_prop_1 = mean(judged_similarity == 1, na.rm = TRUE),
-    judged_prop_2 = mean(judged_similarity == 2, na.rm = TRUE),
-    judged_prop_3 = mean(judged_similarity == 3, na.rm = TRUE),
-    
-    # Cosine
-    cosine_mean = mean(cosine_rescaled, na.rm = TRUE),
-    cosine_sd = sd(cosine_rescaled, na.rm = TRUE),
-    cosine_median = median(cosine_rescaled, na.rm = TRUE),
-    cosine_q25 = quantile(cosine_rescaled, 0.25, na.rm = TRUE),
-    cosine_q75 = quantile(cosine_rescaled, 0.75, na.rm = TRUE),
-    
-    .groups = "drop"
-  ) %>%
-  arrange(desc(cosine_mean))
-
-desc_stats_stimulus
-
-#write_csv(desc_stats_stimulus, paste0(data, "descriptive_by_stimulus.csv"))
-```
-
-
-```{r}
-# Create publication-ready table combining all measures
-desc_table_combined <- desc_stats_stimulus %>%
-  select(stimulus_concept, category, n_responses,
-         binary_mean, judged_mean, judged_median, 
-         cosine_mean, cosine_median) %>%
-  mutate(across(where(is.numeric) & !n_responses, ~round(., 3)))
-
-desc_table_combined
-
-#write_csv(desc_table_combined, paste0(data, "table_descriptive_combined.csv"))
-```
-
 
 # Modeling
 
@@ -450,7 +334,7 @@ account for individual and item-level heterogeneity.
 We fit baseline models for each of the three measures, with only
 random intercepts for participant, native language, and stimulus.
 
-```{r eval=FALSE, message=FALSE, warning=FALSE}
+```{r eval=TRUE, message=FALSE, warning=FALSE}
 {
   set.seed(1708)
 
@@ -658,32 +542,50 @@ random intercepts for participant, native language, and stimulus.
 
 ### Convergence
 
+Rhat and Bulk ESS:
+
 ```{r}
 # ===== CONVERGENCE DIAGNOSTICS =====
 # Extract Rhat and ESS for checking model quality
 
 binary_diagnostics <- tibble(
   model = "binary",
-  max_rhat = max(rhat(fit_bin)),
-  min_ess_bulk = min(neff_ratio(fit_bin))
+  max_rhat = max(brms::rhat(fit_bin)),
+  min_ess_bulk = min(brms::neff_ratio(fit_bin))
 )
 
 ordinal_diagnostics <- tibble(
   model = "ordinal",
-  max_rhat = max(rhat(fit_ord)),
-  min_ess_bulk = min(neff_ratio(fit_ord))
+  max_rhat = max(brms::rhat(fit_ord)),
+  min_ess_bulk = min(brms::neff_ratio(fit_ord))
 )
 
 cosine_diagnostics <- tibble(
   model = "cosine",
-  max_rhat = max(rhat(fit_cos)),
-  min_ess_bulk = min(neff_ratio(fit_cos))
+  max_rhat = max(brms::rhat(fit_cos_com)),
+  min_ess_bulk = min(brms::neff_ratio(fit_cos_com))
 )
 
-diagnostics_all <- bind_rows(binary_diagnostics, ordinal_diagnostics, cosine_diagnostics)
+bind_rows(binary_diagnostics, ordinal_diagnostics, cosine_diagnostics)
 ```
 
-### Cosine scale verification
+Posterior predictive checks:
+
+```{r}
+pp_check(fit_bin, type = "bars", ndraws = 500)
+pp_check(fit_ord, type = "bars", ndraws = 500)
+pp_check(fit_cos_com, type = "dens_overlay", ndraws = 500)
+```
+
+
+R^2 for the models:
+
+```{r}
+r2_table
+```
+
+
+#### Cosine scale verification
 
 ```{r}
 # Extract stimulus posteriors from both models
@@ -697,7 +599,7 @@ stim_scaled <- fitted(fit_cos_com,
 
 # Perfect rank preservation
 cor(stim_original[,"Estimate"], stim_scaled[,"Estimate"], method = "spearman")
-# Should be 1.0
+# Should be as close to 1.0 as possible
 ```
 
 Verify Rank Concordance
@@ -739,8 +641,7 @@ ggplot(stim_wide, aes(x = `Original scale`, y = `Rescaled`)) +
 
 ```{r}
 # Binary model summary
-binary_summary <- summary(fit_bin)
-binary_r2 <- bayes_R2(fit_bin)
+summary(fit_bin)
 
 binary_results <- tibble(
   parameter = c("Intercept", "SD_participant", "SD_stimulus"),
@@ -761,18 +662,14 @@ binary_results <- tibble(
   )
 )
 
-binary_results$r2_mean <- mean(binary_r2[, "R2"])
-binary_results$r2_ci_lower <- quantile(binary_r2[, "R2"], 0.025)
-binary_results$r2_ci_upper <- quantile(binary_r2[, "R2"], 0.975)
-
 binary_results
 ```
 
+The Bayesian logistic regression model for binary accuracy (exact/near-exact matches) revealed that guessing success was very low overall. The population-level intercept of β = -7.11 (95% HDI [-8.65, -5.75]) on the logit scale corresponds to a baseline probability of approximately 0.08% (less than 1 in 1000) of producing an exact match when not accounting for specific stimuli or participants. This extremely negative intercept confirms that exact semantic matches were rare events. The model revealed substantial heterogeneity at both levels: participant-level variation (SD = 1.50, 95% HDI [1.29, 1.73]) indicated that some individuals were consistently better at guessing across all stimuli, while stimulus-level variation (SD = 3.48, 95% HDI [2.43, 5.02]) was even larger, demonstrating that certain concepts were dramatically more guessable than others. The large stimulus SD relative to the participant SD suggests that item characteristics (e.g., iconicity, semantic domain) played a more important role than individual differences in determining success.
 
 ```{r}
 # Ordinal model summary
-ordinal_summary <- summary(fit_ord)
-ordinal_r2 <- bayes_R2(fit_ord)
+summary(fit_ord)
 
 ordinal_results <- tibble(
   parameter = c(paste0("Threshold_", 0:2), "SD_participant", "SD_stimulus"),
@@ -796,38 +693,38 @@ ordinal_results <- tibble(
 ordinal_results
 ```
 
-
-
+The cumulative logit model for ordinal judgments (0 = completely different, 1 = distantly related, 2 = similar, 3 = identical/near-identical) estimated three threshold parameters that define boundaries between adjacent response categories. The first threshold (between 0 and 1) was β = 3.90 (95% HDI [2.80, 5.03]), indicating a high barrier for responses to be considered even distantly related to targets. The second threshold (between 1 and 2) was β = 4.88 (95% HDI [3.78, 6.01]), and the third threshold (between 2 and 3) was β = 6.19 (95% HDI [5.09, 7.32]). These monotonically increasing thresholds show that each step up in similarity rating required increasingly strong evidence, with the gap between categories 2 and 3 (similar vs. identical) being particularly large. Participant-level variation was moderate (SD = 0.665, 95% HDI [0.580, 0.762]), suggesting relatively consistent rating behavior across individuals. However, stimulus-level variation was substantial (SD = 3.08, 95% HDI [2.28, 4.23]), confirming that some stimuli consistently elicited higher similarity ratings than others. The pattern mirrors the binary model: item characteristics mattered more than individual differences in determining semantic overlap between responses and targets.
 
 ```{r}
 # Cosine model summary
-cosine_summary <- summary(fit_cos)
-cosine_r2 <- bayes_R2(fit_cos)
+summary(fit_cos_com)
 
 cosine_results <- tibble(
   parameter = c("Intercept_mu", "Phi", "SD_participant", "SD_stimulus"),
   mean = c(
-    fixef(fit_cos)[1, "Estimate"],
-    summary(fit_cos)$spec_pars[1, "Estimate"], # phi parameter
-    VarCorr(fit_cos)$participant$sd[1, "Estimate"],
-    VarCorr(fit_cos)$stimulus_concept$sd[1, "Estimate"]
+    fixef(fit_cos_com)[1, "Estimate"],
+    summary(fit_cos_com)$spec_pars[1, "Estimate"], # phi parameter
+    VarCorr(fit_cos_com)$participant$sd[1, "Estimate"],
+    VarCorr(fit_cos_com)$stimulus_concept$sd[1, "Estimate"]
   ),
   ci_lower = c(
-    fixef(fit_cos)[1, "Q2.5"],
-    summary(fit_cos)$spec_pars[1, "Q2.5"],
-    VarCorr(fit_cos)$participant$sd[1, "Q2.5"],
-    VarCorr(fit_cos)$stimulus_concept$sd[1, "Q2.5"]
+    fixef(fit_cos_com)[1, "Q2.5"],
+    NA,
+    VarCorr(fit_cos_com)$participant$sd[1, "Q2.5"],
+    VarCorr(fit_cos_com)$stimulus_concept$sd[1, "Q2.5"]
   ),
   ci_upper = c(
-    fixef(fit_cos)[1, "Q97.5"],
-    summary(fit_cos)$spec_pars[1, "Q97.5"],
-    VarCorr(fit_cos)$participant$sd[1, "Q97.5"],
-    VarCorr(fit_cos)$stimulus_concept$sd[1, "Q97.5"]
+    fixef(fit_cos_com)[1, "Q97.5"],
+    NA,
+    VarCorr(fit_cos_com)$participant$sd[1, "Q97.5"],
+    VarCorr(fit_cos_com)$stimulus_concept$sd[1, "Q97.5"]
   )
 )
 
 cosine_results
 ```
+
+The Beta regression model for cosine similarity scores (computational semantic overlap based on ConceptNet embeddings, scaled 0-1) estimated a population-level intercept of β = -0.534 (95% HDI [-0.863, -0.217]) on the logit scale. When back-transformed to the probability scale, this corresponds to a mean cosine similarity of approximately 0.37, indicating that participant responses were, on average, semantically closer to unrelated concepts than to the target meanings. The precision parameter φ = 2.75 describes the concentration of the Beta distribution, with higher values indicating less variance around the mean; this moderate value suggests considerable spread in cosine scores. Between-participant variation was relatively small (SD = 0.346, 95% HDI [0.311, 0.386]), indicating that participants showed similar levels of semantic distance from targets on average. In contrast, between-stimulus variation was substantially larger (SD = 0.878, 95% HDI [0.676, 1.16]), confirming that the semantic guessability of stimuli varied dramatically. As with the other two measures, this pattern demonstrates that the success or failure of semantic guessing was primarily driven by properties of the stimuli (e.g., which semantic domain they belonged to, their acoustic iconicity) rather than by individual participant abilities.
 
 ### Compare outcome scales (pasted from claude just like that)
 
@@ -898,9 +795,13 @@ get_ordinal_expected <- function(fit_ord, newdata) {
     left_join(cats, by = c("stimulus" = "meaning"))
 ```
 
+Across all three evaluation measures—binary accuracy, ordinal similarity judgments, and computational cosine similarity—a consistent pattern emerged: stimulus-level variation substantially exceeded participant-level variation. This indicates that the guessability of novel vocalizations and ape gestures was primarily determined by properties of the signals themselves (their iconicity, semantic domain, or other stimulus characteristics) rather than by individual cognitive differences among participants. The extremely low intercepts for binary accuracy and the below-midpoint intercept for cosine similarity both confirm that, in absolute terms, semantic guessing success was limited when the response space was unrestricted, even though relative differences between stimuli were substantial and systematic.
+
+### Visualizing data
+
 Visualization 1: Heatmap
 
-```{r}
+```{r heatmap, echo=FALSE, fig.align='left', fig.cap=capFig("Heatmap plot."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
 ggplot(all_measures, aes(x = measure, y = stimulus, fill = Estimate)) +
   geom_tile(color = "white") +
   facet_grid(category ~ ., scales = "free_y", space = "free_y") +
@@ -917,7 +818,7 @@ ggplot(all_measures, aes(x = measure, y = stimulus, fill = Estimate)) +
 
 Visualization 2: Lollipop Plot
 
-```{r}
+```{r lollipop, echo=FALSE, fig.align='left', fig.cap=capFig("Lolipop plot."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
 # Reorder stimuli by cosine performance for readability
 stim_order <- all_measures %>%
   filter(measure == "Cosine (rescaled)") %>%
@@ -938,13 +839,27 @@ ggplot(all_measures, aes(x = Estimate, y = stimulus, color = measure)) +
   scale_color_brewer(palette = "Dark2", name = "Evaluation") +
   scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
   labs(x = "Posterior mean μ [0,1]", y = NULL) +
-  theme_minimal(base_size = 11)
+  theme_minimal(base_size = 16)
+
+# Save as PNG
+ggsave(filename = paste0(plots,"lollipop.png"), 
+       plot = last_plot(), 
+       width = 8, 
+       height = 5, 
+       dpi = 300)
+
+# Save as TIF
+ggsave(filename =  paste0(plots,"lollipop.tif"), 
+       plot = last_plot(), 
+       width = 8, 
+       height = 5, 
+       dpi = 300)
 ```
 
 Visualization 3: "Progressive Inclusivity" Plot
 This directly shows your research question:
 
-```{r}
+```{r inclusivity, echo=FALSE, fig.align='left', fig.cap=capFig("Progressive inclusivity plot."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
 # Count how many stimuli "succeed" under each threshold
 thresholds <- seq(0.1, 0.9, 0.1)
 
@@ -961,16 +876,30 @@ success_counts <- map_df(thresholds, function(thresh) {
 ggplot(success_counts, aes(x = threshold, y = n_above, color = measure)) +
   geom_line(linewidth = 1.2) +
   geom_point(size = 2.5) +
-  scale_color_brewer(palette = "Dark2", name = "Evaluation lens") +
+  scale_color_brewer(palette = "Dark2", name = "Evaluation") +
   scale_x_continuous(breaks = thresholds) +
   labs(x = "Success threshold (μ)", 
        y = "Number of stimuli above threshold") +
-  theme_minimal(base_size = 12)
+  theme_minimal(base_size = 16)
+
+# Save as PNG
+ggsave(filename = paste0(plots,"inclusivity.png"), 
+       plot = last_plot(), 
+       width = 6, 
+       height = 4, 
+       dpi = 300)
+
+# Save as TIF
+ggsave(filename =  paste0(plots,"inclusivity.tif"), 
+       plot = last_plot(), 
+       width = 6, 
+       height = 4, 
+       dpi = 300)
 ```
 
 Visualization 4: Direct Comparison Grid
 
-```{r}
+```{r comparison_grid, echo=FALSE, fig.align='left', fig.cap=capFig("Direct comparison grid."), fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
 # Advantage plot adapted for all three measures
 all_measures_wide <- all_measures %>%
   select(stimulus, subcategory, measure, Estimate) %>%
@@ -1044,6 +973,184 @@ stim_ord_v2 <- get_ordinal_expected_v2(fit_ord, nd_stim)
 
 # Should be highly correlated (might differ slightly)
 cor(stim_ord_v1$Estimate, stim_ord_v2$Estimate)
+```
+
+# Descriptive statistics
+
+```{r}
+# Overall descriptive statistics
+desc_stats_overall <- df_brm %>%
+  summarise(
+    # Binary
+    binary_mean = mean(binary_guess, na.rm = TRUE),
+    binary_sd = sd(binary_guess, na.rm = TRUE),
+    binary_n = sum(!is.na(binary_guess)),
+    
+    # Ordinal (judged similarity)
+    judged_mean = mean(judged_similarity, na.rm = TRUE),
+    judged_sd = sd(judged_similarity, na.rm = TRUE),
+    judged_median = median(judged_similarity, na.rm = TRUE),
+    judged_n = sum(!is.na(judged_similarity)),
+    
+    # Ordinal normalized
+    judged_norm_mean = mean(ord_norm, na.rm = TRUE),
+    judged_norm_sd = sd(ord_norm, na.rm = TRUE),
+    judged_norm_median = median(ord_norm, na.rm = TRUE),
+    judged_norm_n = sum(!is.na(ord_norm)),
+    
+    # Cosine
+    cosine_mean = mean(cosine_rescaled, na.rm = TRUE),
+    cosine_sd = sd(cosine_rescaled, na.rm = TRUE),
+    cosine_median = median(cosine_rescaled, na.rm = TRUE),
+    cosine_n = sum(!is.na(cosine_rescaled)),
+    
+    # Cosine scaled
+    cosine_sc_mean = mean(cosine_scaled, na.rm = TRUE),
+    cosine_sc_sd = sd(cosine_scaled, na.rm = TRUE),
+    cosine_sc_median = median(cosine_scaled, na.rm = TRUE),
+    cosine_sc_n = sum(!is.na(cosine_scaled))
+  )
+
+desc_stats_overall
+
+# Save for manuscript
+#write_csv(desc_stats_overall, paste0(data, "descriptive_overall.csv"))
+```
+
+
+```{r}
+# Descriptive statistics by semantic category
+desc_stats_category <- df_brm %>%
+  left_join(cats, by = c("stimulus_concept" = "meaning")) %>%
+  group_by(category, subcategory) %>%
+  summarise(
+    n_stimuli = n_distinct(stimulus_concept),
+    n_responses = n(),
+    
+    # Binary
+    binary_mean = mean(binary_guess, na.rm = TRUE),
+    binary_sd = sd(binary_guess, na.rm = TRUE),
+    binary_prop_correct = mean(binary_guess, na.rm = TRUE), # proportion correct
+    
+    # Ordinal
+    judged_mean = mean(judged_similarity, na.rm = TRUE),
+    judged_sd = sd(judged_similarity, na.rm = TRUE),
+    judged_median = median(judged_similarity, na.rm = TRUE),
+    judged_prop_2plus = mean(judged_similarity >= 2, na.rm = TRUE), # proportion rated similar or exact
+    
+    # Ordinal normalized
+    judged_norm_mean = mean(ord_norm, na.rm = TRUE),
+    judged_norm_sd = sd(ord_norm, na.rm = TRUE),
+    judged_norm_median = median(ord_norm, na.rm = TRUE),
+    
+    # Cosine
+    cosine_mean = mean(cosine_rescaled, na.rm = TRUE),
+    cosine_sd = sd(cosine_rescaled, na.rm = TRUE),
+    cosine_median = median(cosine_rescaled, na.rm = TRUE),
+    
+    # Cosine scaled
+    cosine_sc_mean = mean(cosine_scaled, na.rm = TRUE),
+    cosine_sc_sd = sd(cosine_scaled, na.rm = TRUE),
+    cosine_sc_median = median(cosine_scaled, na.rm = TRUE),
+    
+    .groups = "drop"
+  )
+
+desc_stats_category %>% print(n = Inf)
+
+# write_csv(desc_stats_category, paste0(data, "descriptive_by_category.csv"))
+```
+
+
+```{r}
+# Descriptive statistics by individual stimulus
+desc_stats_stimulus <- df_brm %>%
+  left_join(cats, by = c("stimulus_concept" = "meaning")) %>%
+  group_by(stimulus_concept, category, subcategory) %>%
+  summarise(
+    n_responses = n(),
+    
+    # Binary
+    binary_mean = mean(binary_guess, na.rm = TRUE),
+    binary_n_correct = sum(binary_guess == 1, na.rm = TRUE),
+    
+    # Ordinal
+    judged_mean = mean(judged_similarity, na.rm = TRUE),
+    judged_sd = sd(judged_similarity, na.rm = TRUE),
+    judged_median = median(judged_similarity, na.rm = TRUE),
+    
+    # Ordinal normalized
+    judged_norm_mean = mean(ord_norm, na.rm = TRUE),
+    judged_norm_sd = sd(ord_norm, na.rm = TRUE),
+    judged_norm_median = median(ord_norm, na.rm = TRUE),
+    
+    # Distribution across ordinal categories
+    judged_prop_0 = mean(judged_similarity == 0, na.rm = TRUE),
+    judged_prop_1 = mean(judged_similarity == 1, na.rm = TRUE),
+    judged_prop_2 = mean(judged_similarity == 2, na.rm = TRUE),
+    judged_prop_3 = mean(judged_similarity == 3, na.rm = TRUE),
+    
+    # Cosine
+    cosine_mean = mean(cosine_rescaled, na.rm = TRUE),
+    cosine_sd = sd(cosine_rescaled, na.rm = TRUE),
+    cosine_median = median(cosine_rescaled, na.rm = TRUE),
+    cosine_q25 = quantile(cosine_rescaled, 0.25, na.rm = TRUE),
+    cosine_q75 = quantile(cosine_rescaled, 0.75, na.rm = TRUE),
+    
+    # Cosine scaled
+    cosine_sc_mean = mean(cosine_scaled, na.rm = TRUE),
+    cosine_sc_sd = sd(cosine_scaled, na.rm = TRUE),
+    cosine_sc_median = median(cosine_scaled, na.rm = TRUE),
+    cosine_sc_q25 = quantile(cosine_scaled, 0.25, na.rm = TRUE),
+    cosine_sc_q75 = quantile(cosine_scaled, 0.75, na.rm = TRUE),
+    
+    .groups = "drop"
+  ) %>%
+  arrange(desc(cosine_mean))
+
+desc_stats_stimulus %>% print(n = Inf)
+
+#write_csv(desc_stats_stimulus, paste0(data, "descriptive_by_stimulus.csv"))
+```
+
+
+```{r}
+# Create publication-ready table combining all measures
+desc_table_combined <- desc_stats_stimulus %>%
+  select(stimulus_concept, category, n_responses,
+         binary_mean, judged_mean, judged_median, 
+         judged_norm_mean, judged_norm_median,
+         cosine_mean, cosine_median,
+         cosine_sc_mean, cosine_sc_median) %>%
+  mutate(across(where(is.numeric) & !n_responses, ~round(., 3)))
+
+desc_table_combined %>% print(n = Inf)
+
+#write_csv(desc_table_combined, paste0(data, "table_descriptive_combined.csv"))
+```
+
+Table 1. Correlations between evaluation measures. Pearson correlations with Bayesian posterior estimates and 95% highest density intervals. BF₁₀ indicates Bayes factor for correlation ≠ 0. Ordinal judgments were normalized to 0-1 scale for comparability.
+
+```{r}
+# Generate Table 1: Correlation table for manuscript
+correlation_table_manuscript <- tibble(
+  Measure_Pair = c("Cosine ~ Ordinal ", 
+                   "Cosine ~ Binary", 
+                   "Ordinal ~ Binary"),
+  r = c(0.833, 0.682, 0.796),
+  HDI_Lower = c(0.826, 0.670, 0.786),
+  HDI_Upper = c(0.839, 0.693, 0.806),
+  BF10 = c(">10³⁰", ">10³⁰", ">10³⁰")
+)
+
+write_csv(correlation_table_manuscript, 
+          paste0(data, "table1_correlations.csv"))
+
+# For inline display:
+kable(correlation_table_manuscript, 
+      digits = 3,
+      col.names = c("Measure Pair", "r", "95% HDI Lower", "95% HDI Upper", "BF₁₀"),
+      caption = "Table 1. Correlations between evaluation measures")
 ```
 
 # Session info
