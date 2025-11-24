@@ -340,22 +340,22 @@ meta_lang <- meta_lang %>%
   rename(environment = environment_choice) %>%
   mutate(
     environment = case_when(
-      environment == 1 ~ "home",
-      environment == 2 ~ "transport",
-      environment == 3 ~ "another public space",
-      environment == 4 ~ "other",
+      environment == "option_0" ~ "home",
+      environment == "option_1" ~ "transport",
+      environment == "option_2" ~ "another public space",
+      environment == "option_3" ~ "other",
       TRUE ~ NA_character_
     ),
     audio_device = case_when(
-      audio_device == 1 ~ "speaker",
-      audio_device == 2 ~ "headphones",
-      audio_device == 3 ~ "other",
+      audio_device == "option_0" ~ "speaker",
+      audio_device == "option_1" ~ "headphones",
+      audio_device == "option_2" ~ "other",
       TRUE ~ NA_character_
     ),
     text_device = case_when(
-      text_device == 1 ~ "computer",
-      text_device == 2 ~ "phone",
-      text_device == 3 ~ "other",
+      text_device == "option_0" ~ "computer",
+      text_device == "option_1" ~ "phone",
+      text_device == "option_2" ~ "other",
       TRUE ~ NA_character_
     )
   )
@@ -471,15 +471,111 @@ Cross-tab of binary vs ordinal.
 table(df$binary_guess, df$judged_similarity)
 ```
 
-## Add descriptive statistics on
-participant,
-    native_language,
-    hearing_disabilities,
-    environment,
-    audio_device,
-    text_device,
-    toughness,
-    quantity_guessed = quantity,
+## Descriptive statistics
+
+Create a participant-level dataset
+
+```{r}
+df_p <- df %>%
+  group_by(participant) %>%
+  summarise(
+    native_language     = first(native_language),
+    hearing_disabilities = first(hearing_disabilities),
+    environment         = first(environment),
+    audio_device        = first(audio_device),
+    text_device         = first(text_device),
+    # numeric variables: average per participant
+    toughness_mean      = mean(toughness, na.rm = TRUE),
+    quantity_mean       = mean(quantity_guessed, na.rm = TRUE)
+  )
+
+freq <- function(x) {
+  as.data.frame(table(x)) %>%
+    mutate(
+      percent = round(100 * Freq / sum(Freq), 2)
+    ) %>%
+    arrange(desc(Freq))
+}
+```
+
+
+**Number of participants**
+
+```{r}
+n_distinct(df$participant)
+```
+
+**Distributions of native languages**
+
+```{r}
+freq(df_p$native_language)
+```
+
+Most of participants were English speakers (27%), followed by Portuguese (20.5%), and Spanish (15%). The rest of the languages (N = 26) were less than 10%.
+
+
+**Distribution of hearing disabilities**
+
+```{r}
+freq(df_p$hearing_disabilities)
+```
+
+Most of the participants (99.5%) did not have any hearing disabilities, except for one person who took part in the experiment.
+
+**Distribution of the environment**
+
+```{r}
+freq(df_p$environment)
+```
+
+94% of the participants were home with only 5% in an unspecified location and 1% in a public space.
+
+**Distribution of the audio device**
+
+```{r}
+freq(df_p$audio_device)
+```
+
+Most speakers wore headphones (55%), followed by those who used speakers (44%), and other devices (1%).
+
+**Distribution of the input device**
+
+```{r}
+freq(df_p$text_device)
+```
+
+88.5% of the participants used a computer, 10.5% used a smartphone, and 1% used another device.
+
+**Toughness rating**
+
+```{r}
+df_p %>%
+  summarise(
+    mean  = mean(toughness_mean),
+    sd    = sd(toughness_mean),
+    min   = min(toughness_mean),
+    max   = max(toughness_mean)
+  )
+freq(df_p$toughness_mean)
+```
+
+
+**Quantity guessed**
+
+```{r}
+df_p %>%
+  summarise(
+    mean  = mean(quantity_mean),
+    sd    = sd(quantity_mean),
+    min   = min(quantity_mean),
+    max   = max(quantity_mean)
+  )
+freq(df_p$quantity_mean)
+```
+
+quantity_guessed = quantity,
+
+
 
 # Visual exploration
 
