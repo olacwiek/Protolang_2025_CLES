@@ -1,4 +1,4 @@
 Measure_Pair,r,HDI_Lower,HDI_Upper,BF10
-Cosine ~ Ordinal (normalized),0.833,0.826,0.839,>10³⁰
+Cosine ~ Ordinal ,0.833,0.826,0.839,>10³⁰
 Cosine ~ Binary,0.682,0.67,0.693,>10³⁰
-Ordinal (normalized) ~ Binary,0.796,0.786,0.806,>10³⁰
+Ordinal ~ Binary,0.796,0.786,0.806,>10³⁰
